@@ -1,0 +1,22 @@
+# dependencias
+node_modules/
+
+# builds
+dist/
+.vite/
+
+# variables de entorno (NO subir; sí la plantilla)
+.env
+.env.*
+!.env.example
+*.local
+
+# basura de sistema
+.DS_Store
+desktop.ini
+Thumbs.db
+
+# PocketBase: datos y ejecutable no se suben (las migraciones y hooks sí)
+backend/pb_data/
+backend/*.exe
+backend/pocketbase

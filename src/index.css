@@ -1,0 +1,217 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Valores HSL (tono saturación luminosidad): tailwind.config.js los usa como hsl(var(--x)). */
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222.2 47.4% 11.2%;
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 47.4% 11.2%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 47.4% 11.2%;
+  --primary: 221.2 83.2% 53.3%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 40% 96.1%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --accent: 210 40% 96.1%;
+  --accent-foreground: 222.2 47.4% 11.2%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 221.2 83.2% 53.3%;
+  --radius: 0.5rem;
+
+  --app-bg: #f5f7fb;
+  --surface: #ffffff;
+  --soft-border: #dbe3f0;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --brand-primary: #2563eb;
+  --brand-accent: #7c3aed;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  @apply text-slate-900;
+  background: var(--app-bg);
+  color: var(--text-main);
+  font-family: 'Inter', sans-serif;
+}
+
+.gradient-text {
+  @apply text-blue-600;
+}
+
+.event-card {
+  @apply rounded-2xl p-4 transition-all duration-300 hover:-translate-y-1;
+  background: var(--surface);
+  border: 1px solid var(--soft-border);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+}
+
+.event-card:hover {
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.1);
+}
+
+.search-input-container {
+  @apply flex items-center rounded-xl p-1.5;
+  background: #eef3fb;
+  border: 1px solid var(--soft-border);
+}
+
+.search-input {
+  @apply bg-transparent w-full px-3 py-2.5 text-slate-800 placeholder-slate-500 focus:outline-none;
+}
+
+.btn-primary {
+  @apply text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300;
+  background: linear-gradient(135deg, var(--brand-primary), var(--brand-accent));
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.25);
+}
+
+.btn-primary:hover {
+  filter: brightness(1.03);
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.32);
+}
+
+.btn-primary:disabled {
+  @apply opacity-60 cursor-not-allowed;
+  filter: none;
+}
+
+.form-label {
+  @apply block text-sm font-medium text-slate-700 mb-1.5;
+}
+
+.btn-secondary {
+  @apply text-slate-800 font-semibold py-3 px-6 rounded-xl transition-all;
+  background: #e8eef8;
+}
+
+.btn-secondary:hover {
+  background: #dde7f6;
+}
+
+.floating-card {
+  @apply rounded-2xl p-8;
+  background: var(--surface);
+  border: 1px solid var(--soft-border);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.1);
+}
+
+.stats-badge {
+  @apply px-3 py-1 rounded-full text-xs font-semibold;
+  background: #e8edff;
+  color: #2440a8;
+}
+
+.location-badge {
+  @apply px-3 py-1 rounded-full text-xs font-semibold;
+  background: #eef3fb;
+  color: #45556f;
+}
+
+.date-badge {
+  @apply px-3 py-1 rounded-full text-xs font-semibold;
+  background: #eef3fb;
+  color: #45556f;
+}
+
+.form-input {
+  @apply bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all w-full;
+}
+
+.form-textarea {
+  @apply bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all w-full min-h-[120px] resize-none;
+}
+
+.nav-link {
+  @apply transition-colors duration-300 font-medium;
+  color: #52627c;
+}
+
+.nav-link.active {
+  @apply font-semibold;
+  color: var(--brand-primary);
+}
+
+.hero-gradient {
+  background: radial-gradient(1200px 380px at 10% -20%, rgba(124, 58, 237, 0.12), transparent 60%),
+    radial-gradient(1000px 300px at 95% 0%, rgba(37, 99, 235, 0.12), transparent 55%),
+    #f8faff;
+}
+
+.event-image {
+  @apply w-full h-48 object-cover rounded-xl mb-4;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.search-filters {
+  @apply flex flex-wrap gap-2 mt-4;
+}
+
+.filter-chip {
+  @apply px-4 py-2 rounded-full text-sm font-medium transition-all cursor-pointer;
+  background: #edf2fb;
+  color: #415271;
+  border: 1px solid transparent;
+}
+
+.filter-chip.active {
+  @apply text-white;
+  background: linear-gradient(135deg, var(--brand-primary), var(--brand-accent));
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.calendar-input-container {
+  @apply relative flex items-center;
+}
+
+.calendar-input {
+  @apply rounded-xl pl-10 pr-4 py-3 text-slate-900 border focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all w-full;
+  background: #eef3fb;
+  border-color: var(--soft-border);
+}
+
+.calendar-icon {
+  @apply absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 h-5 w-5 pointer-events-none;
+}
+
+.success-toast {
+  @apply bg-green-500 text-white;
+}
+
+.error-toast {
+  @apply bg-red-500 text-white;
+}
+
+.info-toast {
+  @apply bg-blue-500 text-white;
+}
+
+.merchant-panel {
+  @apply bg-white border border-slate-200 rounded-xl p-6;
+}
+
+.dashboard-card {
+  @apply bg-white border border-slate-200 rounded-xl p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
+}
+
+.image-upload-box {
+  @apply border-2 border-dashed border-slate-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 hover:bg-slate-50 transition-colors;
+}
+
+.auth-container {
+  @apply bg-slate-50;
+}
+
+.auth-card {
+  @apply bg-white border border-slate-200 rounded-2xl p-8 shadow-lg;
+}
