@@ -8,7 +8,7 @@ import VenuesTab from '@/components/merchant/VenuesTab';
 import SettingsTab from '@/components/merchant/SettingsTab';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import pb from '@/lib/pocketbase';
+import { supabase, EVENT_WITH_VENUE } from '@/lib/supabase';
 import useDocumentTitle from '@/lib/useDocumentTitle';
 
 const TABS = [
@@ -38,24 +38,20 @@ const MerchantDashboard = () => {
   // Locales y eventos del comerciante: se cargan una vez y se comparten entre pestañas.
   useEffect(() => {
     let cancelled = false;
-    const mine = pb.filter('user_id = {:id}', { id: user.id });
-
     Promise.all([
-      pb.collection('venues').getFullList({ filter: mine, sort: 'name' }),
-      pb.collection('events').getFullList({ filter: mine, sort: '-date', expand: 'venue' }),
-    ])
-      .then(([v, e]) => {
-        if (cancelled) return;
-        setVenues(v);
-        setEvents(e);
-      })
-      .catch((err) => {
-        console.error('Error loading merchant data:', err);
-        if (!cancelled) {
-          toast({ title: '❌ No se pudieron cargar tus datos', className: 'error-toast' });
-        }
-      })
-      .finally(() => !cancelled && setLoading(false));
+      supabase.from('venues').select('*').eq('user_id', user.id).order('name'),
+      supabase.from('events').select(EVENT_WITH_VENUE).eq('user_id', user.id).order('date', { ascending: false }),
+    ]).then(([v, e]) => {
+      if (cancelled) return;
+      if (v.error || e.error) {
+        console.error('Error loading merchant data:', v.error || e.error);
+        toast({ title: 'No se pudieron cargar tus datos', className: 'error-toast' });
+      } else {
+        setVenues(v.data);
+        setEvents(e.data);
+      }
+      setLoading(false);
+    });
 
     return () => {
       cancelled = true;

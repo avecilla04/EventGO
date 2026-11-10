@@ -5,18 +5,17 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "backend": "backend\\pocketbase.exe serve",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.0.2",
     "@radix-ui/react-toast": "^1.1.5",
+    "@supabase/supabase-js": "^2.119.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
     "framer-motion": "^10.16.4",
     "lucide-react": "^0.285.0",
-    "pocketbase": "^0.26.5",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^7.18.5",

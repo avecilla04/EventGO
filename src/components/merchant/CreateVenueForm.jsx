@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useToast } from "@/components/ui/use-toast";
-import pb from "@/lib/pocketbase";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { errorMessage } from "@/lib/events";
 import { normalizeWebsite } from "@/lib/links";
@@ -52,14 +52,15 @@ const CreateVenueForm = ({ mode = "create", initialData = null, onSaved, onCance
       description: venueForm.description.trim(),
       website: normalizeWebsite(venueForm.website),
       instagram: venueForm.instagram.trim().replace(/^@/, ""),
-      user_id: user.id,
     };
 
     try {
       setSaving(true);
-      const saved = isEdit
-        ? await pb.collection("venues").update(initialData.id, payload)
-        : await pb.collection("venues").create(payload);
+      const query = isEdit
+        ? supabase.from("venues").update(payload).eq("id", initialData.id)
+        : supabase.from("venues").insert(payload);
+      const { data: saved, error } = await query.select().single();
+      if (error) throw error;
       toast({ title: isEdit ? "Local actualizado" : "Local registrado", className: "success-toast" });
       onSaved?.(saved);
     } catch (err) {

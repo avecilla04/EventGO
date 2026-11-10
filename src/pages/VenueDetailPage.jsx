@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, MapPin, Globe, Instagram, Heart, CalendarX, Store, Navigation } from "lucide-react";
-import pb from "@/lib/pocketbase";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import LoginRequired from "@/components/LoginRequired";
@@ -18,7 +18,7 @@ export default function VenueDetailPage() {
   const [venue, setVenue] = useState(null);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [followId, setFollowId] = useState(null);
+  const [following, setFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
 
   useDocumentTitle(venue?.name || "Local");
@@ -29,26 +29,17 @@ export default function VenueDetailPage() {
     setLoading(true);
 
     Promise.all([
-      pb.collection("venues").getOne(id),
-      pb.collection("events").getFullList({
-        filter: pb.filter("venue = {:id} && date >= {:today}", { id, today: `${todayISO()} 00:00:00` }),
-        sort: "date,start_time",
-      }),
-      pb.collection("venue_follows").getList(1, 1, {
-        filter: pb.filter("user = {:user} && venue = {:id}", { user: user.id, id }),
-      }),
-    ])
-      .then(([venueRecord, eventRecords, follows]) => {
-        if (cancelled) return;
-        setVenue(venueRecord);
-        setEvents(eventRecords);
-        setFollowId(follows.items[0]?.id || null);
-      })
-      .catch((err) => {
-        console.error("Error loading venue detail:", err);
-        if (!cancelled) setVenue(null);
-      })
-      .finally(() => !cancelled && setLoading(false));
+      supabase.from("venues").select("*").eq("id", id).maybeSingle(),
+      supabase.from("events").select("*").eq("venue_id", id).gte("date", todayISO()).order("date").order("start_time"),
+      supabase.from("venue_follows").select("venue_id").eq("venue_id", id).eq("user_id", user.id).maybeSingle(),
+    ]).then(([venueRes, eventsRes, followRes]) => {
+      if (cancelled) return;
+      if (venueRes.error) console.error("Error loading venue detail:", venueRes.error);
+      setVenue(venueRes.data || null);
+      setEvents(eventsRes.data || []);
+      setFollowing(!!followRes.data);
+      setLoading(false);
+    });
 
     return () => {
       cancelled = true;
@@ -59,13 +50,15 @@ export default function VenueDetailPage() {
     if (followLoading) return;
     try {
       setFollowLoading(true);
-      if (!followId) {
-        const created = await pb.collection("venue_follows").create({ user: user.id, venue: venue.id });
-        setFollowId(created.id);
+      if (!following) {
+        const { error } = await supabase.from("venue_follows").insert({ venue_id: venue.id });
+        if (error && error.code !== "23505") throw error;
+        setFollowing(true);
         toast({ title: "Ahora sigues este local", className: "success-toast" });
       } else {
-        await pb.collection("venue_follows").delete(followId);
-        setFollowId(null);
+        const { error } = await supabase.from("venue_follows").delete().eq("venue_id", venue.id).eq("user_id", user.id);
+        if (error) throw error;
+        setFollowing(false);
         toast({ title: "Has dejado de seguir este local", className: "info-toast" });
       }
     } catch (err) {
@@ -137,10 +130,10 @@ export default function VenueDetailPage() {
               <button
                 onClick={handleToggleFollow}
                 disabled={followLoading}
-                className={followId ? "btn bg-white text-ink hover:bg-white/90" : "btn-primary"}
+                className={following ? "btn bg-white text-ink hover:bg-white/90" : "btn-primary"}
               >
-                <Heart className={`h-4 w-4 ${followId ? "fill-accent text-accent" : ""}`} />
-                {followLoading ? "Guardando..." : followId ? "Siguiendo" : "Seguir"}
+                <Heart className={`h-4 w-4 ${following ? "fill-accent text-accent" : ""}`} />
+                {followLoading ? "Guardando..." : following ? "Siguiendo" : "Seguir"}
               </button>
             )}
             <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="btn bg-white/10 text-white ring-1 ring-white/20 hover:bg-white/15">

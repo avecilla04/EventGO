@@ -5,7 +5,7 @@ import { Plus, MapPin, Store, Pencil, Trash2, Globe, Instagram } from "lucide-re
 import EmptyState from "@/components/EmptyState";
 import { useToast } from "@/components/ui/use-toast";
 import CreateVenueForm from "@/components/merchant/CreateVenueForm";
-import pb from "@/lib/pocketbase";
+import { supabase } from "@/lib/supabase";
 import { errorMessage } from "@/lib/events";
 import { instagramUrl, safeWebsite } from "@/lib/links";
 
@@ -20,13 +20,13 @@ const VenuesTab = ({ venues, setVenues, events, setEvents }) => {
     );
     // Mantiene actualizado el nombre del local en la lista de eventos.
     setEvents((prev) =>
-      prev.map((e) => (e.venue === saved.id ? { ...e, expand: { ...e.expand, venue: saved } } : e))
+      prev.map((e) => (e.venue_id === saved.id ? { ...e, venue: { id: saved.id, name: saved.name, address: saved.address } } : e))
     );
     setEditing(null);
   };
 
   const handleDelete = async (venue) => {
-    const count = events.filter((e) => e.venue === venue.id).length;
+    const count = events.filter((e) => e.venue_id === venue.id).length;
     if (count > 0) {
       toast({
         title: "⚠️ No se puede borrar el local",
@@ -38,7 +38,8 @@ const VenuesTab = ({ venues, setVenues, events, setEvents }) => {
     if (!window.confirm(`¿Seguro que quieres borrar "${venue.name}"?`)) return;
 
     try {
-      await pb.collection("venues").delete(venue.id);
+      const { error } = await supabase.from("venues").delete().eq("id", venue.id);
+      if (error) throw error;
       setVenues((prev) => prev.filter((v) => v.id !== venue.id));
       if (editing?.id === venue.id) setEditing(null);
       toast({ title: "Local borrado", className: "info-toast" });
@@ -73,7 +74,7 @@ const VenuesTab = ({ venues, setVenues, events, setEvents }) => {
           {venues.map((venue) => {
             const website = safeWebsite(venue.website);
             const instagram = instagramUrl(venue.instagram);
-            const count = events.filter((e) => e.venue === venue.id).length;
+            const count = events.filter((e) => e.venue_id === venue.id).length;
             return (
               <div key={venue.id} className="panel flex flex-col">
                 <div className="flex items-start gap-4">

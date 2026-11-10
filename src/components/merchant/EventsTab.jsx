@@ -5,7 +5,8 @@ import { Plus, Eye, Clock, MapPin, Pencil, Trash2, ChevronDown, CalendarPlus } f
 import { useToast } from '@/components/ui/use-toast';
 import CreateEventForm from '@/components/merchant/CreateEventForm';
 import EmptyState from '@/components/EmptyState';
-import pb from '@/lib/pocketbase';
+import { supabase } from '@/lib/supabase';
+import { removeCovers } from '@/lib/images';
 import { categoryIcon, coverUrl, dateParts, errorMessage, formatTimeRange, todayISO } from '@/lib/events';
 
 const EventsTab = ({ events, setEvents, venues, setActiveTab }) => {
@@ -30,7 +31,9 @@ const EventsTab = ({ events, setEvents, venues, setActiveTab }) => {
   const handleDelete = async (event) => {
     if (!window.confirm(`¿Seguro que quieres borrar "${event.title}"?`)) return;
     try {
-      await pb.collection('events').delete(event.id);
+      const { error } = await supabase.from('events').delete().eq('id', event.id);
+      if (error) throw error;
+      removeCovers([event.cover_path]);
       setEvents((prev) => prev.filter((e) => e.id !== event.id));
       if (editing?.id === event.id) setEditing(null);
       toast({ title: 'Evento borrado', className: 'info-toast' });
@@ -69,8 +72,8 @@ const EventsTab = ({ events, setEvents, venues, setActiveTab }) => {
             {event.category && (
               <span className="tag-accent">{CatIcon && <CatIcon className="h-3 w-3" />}{event.category}</span>
             )}
-            {event.expand?.venue && (
-              <span className="tag"><MapPin className="h-3 w-3" />{event.expand.venue.name}</span>
+            {event.venue && (
+              <span className="tag"><MapPin className="h-3 w-3" />{event.venue.name}</span>
             )}
           </div>
           <div className="mt-4 flex gap-2">

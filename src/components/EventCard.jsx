@@ -8,7 +8,7 @@ import { categoryIcon, coverUrl, dateParts, formatTimeRange } from "@/lib/events
  */
 export default function EventCard({ event, limited = false, eager = false, showVenue = true }) {
   const parts = dateParts(event.date);
-  const venue = event.expand?.venue;
+  const venue = event.venue;
   const time = formatTimeRange(event.start_time, event.end_time);
   const CatIcon = categoryIcon(event.category);
 

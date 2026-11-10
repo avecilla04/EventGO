@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import pb from "@/lib/pocketbase";
+import { supabase, GUEST_EVENT_COLUMNS, EVENT_WITH_VENUE } from "@/lib/supabase";
 import { EVENT_CATEGORIES, dateRange, todayISO, formatDate } from "@/lib/events";
 import EventCard, { EventCardSkeleton } from "@/components/EventCard";
 import EmptyState from "@/components/EmptyState";
@@ -50,27 +50,27 @@ export default function HomePage() {
   useDocumentTitle("Descubre planes cerca de ti");
 
   // Solo eventos de hoy en adelante, ordenados por fecha.
-  // El local (expand) solo llega con sesión iniciada: así lo marcan las reglas de PocketBase.
+  // Los invitados solo pueden leer título, fecha y portada (privilegios en supabase/schema.sql).
   useEffect(() => {
     let cancelled = false;
-    pb.collection("events")
-      .getFullList({
-        filter: pb.filter("date >= {:today}", { today: `${todayISO()} 00:00:00` }),
-        sort: "date,start_time",
-        expand: isAuthenticated ? "venue" : undefined,
-      })
-      .then((data) => !cancelled && setEvents(data))
-      .catch((err) => {
-        console.error("Error fetching events:", err);
-        if (!cancelled) {
-          toast({
-            title: "No se pudieron cargar los eventos",
-            description: "Comprueba que el backend (PocketBase) está arrancado.",
-            className: "error-toast",
-          });
-        }
-      })
-      .finally(() => !cancelled && setLoading(false));
+    const query = isAuthenticated
+      ? supabase.from("events").select(EVENT_WITH_VENUE).order("date").order("start_time")
+      : supabase.from("events").select(GUEST_EVENT_COLUMNS).order("date");
+
+    query.gte("date", todayISO()).then(({ data, error }) => {
+      if (cancelled) return;
+      if (error) {
+        console.error("Error fetching events:", error);
+        toast({
+          title: "No se pudieron cargar los eventos",
+          description: "Comprueba la conexión con Supabase.",
+          className: "error-toast",
+        });
+      } else {
+        setEvents(data);
+      }
+      setLoading(false);
+    });
     return () => {
       cancelled = true;
     };
@@ -84,7 +84,7 @@ export default function HomePage() {
       if (range && (day < range[0] || day > range[1])) return false;
       if (category && e.category !== category) return false;
       if (q) {
-        const v = e.expand?.venue;
+        const v = e.venue;
         if (!normalize(`${e.title} ${v?.name || ""} ${v?.address || ""}`).includes(q)) return false;
       }
       return true;

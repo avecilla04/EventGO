@@ -1,7 +1,7 @@
 import { PartyPopper, Martini, Music, Palette, Sunset, Moon } from "lucide-react";
-import pb from "@/lib/pocketbase";
+import { supabase, COVERS_BUCKET } from "@/lib/supabase";
 
-// `id` debe coincidir exactamente con los valores del campo `category` en PocketBase.
+// `id` debe coincidir exactamente con el CHECK de `events.category` en supabase/schema.sql.
 export const EVENT_CATEGORIES = [
   { id: "Fiesta", Icon: PartyPopper },
   { id: "Tardeo Fest", Icon: Martini },
@@ -18,7 +18,7 @@ export const MAX_COVER_BYTES = 5 * 1024 * 1024;
 export const FALLBACK_COVER =
   "https://images.unsplash.com/photo-1665220509244-fe8459807991?auto=format&fit=crop&w=1200&q=70";
 
-/** "2026-12-20 00:00:00.000Z" -> "2026-12-20" (formato de <input type="date">). */
+/** Valor para <input type="date">: "YYYY-MM-DD". */
 export const toDateInput = (value) => (value ? String(value).slice(0, 10) : "");
 
 const pad = (n) => String(n).padStart(2, "0");
@@ -54,7 +54,7 @@ export const dateRange = (when, customDate) => {
   }
 };
 
-/** Partes para la "etiqueta de calendario" de las tarjetas: { day: "20", month: "dic" }. */
+/** Partes para la "etiqueta de calendario" de las tarjetas: { day: "20", month: "dic", weekday: "dom" }. */
 export const dateParts = (value) => {
   const iso = toDateInput(value);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
@@ -67,10 +67,7 @@ export const dateParts = (value) => {
   };
 };
 
-/**
- * Formatea la fecha sin pasar por zonas horarias: el evento del día 20 se
- * muestra como día 20 en cualquier parte del mundo.
- */
+/** Formatea la fecha sin pasar por zonas horarias. */
 export const formatDate = (value, options = { day: "2-digit", month: "2-digit", year: "numeric" }) => {
   const iso = toDateInput(value);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
@@ -83,55 +80,44 @@ export const formatTimeRange = (start, end) => {
   return start || end || null;
 };
 
-/** URL de la portada. `thumb` pide a PocketBase una versión reducida (ver migración). */
-export const coverUrl = (event, thumb = "640x360") =>
-  event?.cover ? pb.files.getURL(event, event.cover, { thumb }) : FALLBACK_COVER;
+/** URL pública de la portada del evento. */
+export const coverUrl = (event) =>
+  event?.cover_path
+    ? supabase.storage.from(COVERS_BUCKET).getPublicUrl(event.cover_path).data.publicUrl
+    : FALLBACK_COVER;
 
-const FIELD_LABELS = {
-  email: "El email",
-  password: "La contraseña",
-  passwordConfirm: "La confirmación de contraseña",
-  name: "El nombre",
-  business_name: "El nombre del negocio",
-  title: "El título",
-  date: "La fecha",
-  venue: "El local",
-  cover: "La imagen",
-  address: "La dirección",
-  website: "La web",
-  start_time: "La hora de inicio",
-  end_time: "La hora de fin",
+// ---------------------------------------------------------------------------
+// Errores
+// ---------------------------------------------------------------------------
+
+const AUTH_MESSAGES = [
+  [/invalid login credentials/i, "Email o contraseña incorrectos."],
+  [/user already registered/i, "Ya existe una cuenta con ese email."],
+  [/password should be at least/i, "La contraseña es demasiado corta."],
+  [/unable to validate email|invalid email|email address .* is invalid/i, "El email no es válido."],
+  [/email not confirmed/i, "Confirma tu email antes de iniciar sesión."],
+  [/rate limit|too many requests/i, "Demasiados intentos. Espera un momento y vuelve a probar."],
+  [/payload too large|exceeded the maximum allowed size/i, "La imagen supera los 5 MB."],
+  [/mime type .* is not supported|invalid mime/i, "La imagen debe ser JPG, PNG, WEBP o GIF."],
+  [/failed to fetch|networkerror|load failed/i, "No hay conexión con el servidor."],
+];
+
+const PG_CODES = {
+  "23505": "Eso ya existe.",
+  "23503": "No se puede borrar: tiene elementos asociados.",
+  "23514": "Algún dato no tiene un formato válido.",
+  "23502": "Falta un dato obligatorio.",
+  "42501": "No tienes permiso para hacer esto.",
+  "22P02": "Algún dato no tiene un formato válido.",
+  PGRST116: "No se ha encontrado.",
 };
 
-const CODE_MESSAGES = {
-  validation_not_unique: "ya está en uso",
-  validation_required: "es obligatorio",
-  validation_length_out_of_range: "tiene una longitud no válida",
-  validation_length_too_short: "es demasiado corto",
-  validation_length_too_long: "es demasiado largo",
-  validation_is_email: "no es válido",
-  validation_invalid_email: "no es válido",
-  validation_invalid_url: "no es una dirección web válida",
-  validation_is_url: "no es una dirección web válida",
-  validation_file_size_limit: "supera los 5 MB",
-  validation_invalid_mime_type: "debe ser una imagen JPG, PNG, WEBP o GIF",
-  validation_values_mismatch: "no coincide",
-  validation_invalid_format: "tiene un formato no válido",
-};
-
-/** Mensaje legible a partir de un error de PocketBase. */
+/** Mensaje legible a partir de un error de Supabase (auth, base de datos o almacenamiento). */
 export const errorMessage = (err, fallback = "Inténtalo de nuevo.") => {
-  const fields = err?.response?.data || err?.data?.data;
-  if (fields && typeof fields === "object") {
-    const first = Object.entries(fields)[0];
-    if (first) {
-      const [field, info] = first;
-      const label = FIELD_LABELS[field] || field;
-      const text = CODE_MESSAGES[info?.code] || info?.message || "no es válido";
-      return `${label} ${text}.`;
-    }
-  }
-  if (err?.status === 0) return "No hay conexión con el servidor.";
-  if (err?.status === 403 || err?.status === 404) return "No tienes permiso para hacer esto.";
-  return err?.message || fallback;
+  if (!err) return fallback;
+  if (err.code && PG_CODES[err.code]) return PG_CODES[err.code];
+  const text = String(err.message || err.error_description || err);
+  if (/row-level security/i.test(text)) return PG_CODES["42501"];
+  const match = AUTH_MESSAGES.find(([re]) => re.test(text));
+  return match ? match[1] : fallback;
 };

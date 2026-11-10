@@ -16,7 +16,7 @@ export default defineConfig({
 				manualChunks: {
 					react: ['react', 'react-dom', 'react-router-dom'],
 					motion: ['framer-motion'],
-					pocketbase: ['pocketbase'],
+					supabase: ['@supabase/supabase-js'],
 				},
 			},
 		},

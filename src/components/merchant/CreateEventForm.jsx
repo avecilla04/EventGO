@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { ImagePlus, X, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import pb from "@/lib/pocketbase";
+import { supabase, EVENT_WITH_VENUE } from "@/lib/supabase";
+import { uploadCover, removeCovers } from "@/lib/images";
 import { useAuth } from "@/contexts/AuthContext";
 import { EVENT_CATEGORIES, MAX_COVER_BYTES, coverUrl, errorMessage, toDateInput, todayISO } from "@/lib/events";
 
@@ -37,7 +38,7 @@ const CreateEventForm = ({ venues, mode = "create", initialData = null, onSaved,
         date: toDateInput(initialData.date),
         start_time: initialData.start_time || "",
         end_time: initialData.end_time || "",
-        venue: initialData.venue || "",
+        venue: initialData.venue_id || "",
       });
     } else {
       // Con un solo local, se preselecciona.
@@ -87,29 +88,36 @@ const CreateEventForm = ({ venues, mode = "create", initialData = null, onSaved,
 
     const payload = {
       title: eventForm.title.trim(),
-      category: eventForm.category,
+      category: eventForm.category || null,
       description: eventForm.description.trim(),
-      date: `${eventForm.date} 00:00:00`,
+      date: eventForm.date,
       start_time: eventForm.start_time,
       end_time: eventForm.end_time,
-      venue: eventForm.venue,
-      user_id: user.id,
-      ...(coverFile ? { cover: coverFile } : {}),
+      venue_id: eventForm.venue,
     };
 
+    let uploadedPath = null;
     try {
       setSaving(true);
-      const saved = isEdit
-        ? await pb.collection("events").update(initialData.id, payload)
-        : await pb.collection("events").create(payload);
+      if (coverFile) {
+        uploadedPath = await uploadCover(user.id, coverFile);
+        payload.cover_path = uploadedPath;
+      }
 
-      // Añadimos el local localmente para no tener que volver a pedirlo.
-      saved.expand = { venue: venues.find((v) => v.id === saved.venue) };
+      const query = isEdit
+        ? supabase.from("events").update(payload).eq("id", initialData.id)
+        : supabase.from("events").insert(payload);
+      const { data: saved, error } = await query.select(EVENT_WITH_VENUE).single();
+      if (error) throw error;
+
+      // La portada anterior ya no se usa: se borra para no ocupar espacio.
+      if (isEdit && uploadedPath && initialData.cover_path) removeCovers([initialData.cover_path]);
 
       toast({ title: isEdit ? "Evento actualizado" : "Evento publicado", className: "success-toast" });
       onSaved?.(saved);
     } catch (err) {
       console.error("Save event error:", err);
+      if (uploadedPath) removeCovers([uploadedPath]);
       toast({
         title: isEdit ? "No se pudo guardar el evento" : "No se pudo crear el evento",
         description: errorMessage(err),
@@ -120,7 +128,7 @@ const CreateEventForm = ({ venues, mode = "create", initialData = null, onSaved,
     }
   };
 
-  const currentCover = preview || (isEdit && initialData.cover ? coverUrl(initialData) : null);
+  const currentCover = preview || (isEdit && initialData.cover_path ? coverUrl(initialData) : null);
 
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="panel">

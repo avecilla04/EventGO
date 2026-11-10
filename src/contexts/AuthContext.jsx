@@ -1,60 +1,110 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import pb from "@/lib/pocketbase";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 const AuthContext = createContext(null);
 
+/** Usuario de la app = sesión de Supabase Auth + su fila en `profiles`. */
+async function loadUser(session) {
+  if (!session?.user) return null;
+  const { data } = await supabase
+    .from("profiles")
+    .select("id, type, name, business_name")
+    .eq("id", session.user.id)
+    .maybeSingle();
+  return {
+    id: session.user.id,
+    email: session.user.email,
+    type: data?.type || "cliente",
+    name: data?.name || "",
+    business_name: data?.business_name || "",
+  };
+}
+
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(pb.authStore.isValid ? pb.authStore.record : null);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = pb.authStore.onChange(() => {
-      setUser(pb.authStore.isValid ? pb.authStore.record : null);
+    let active = true;
+    const apply = async (session) => {
+      const next = await loadUser(session);
+      if (active) {
+        setUser(next);
+        setLoading(false);
+      }
+    };
+
+    // getSession valida y refresca el token guardado; si no sirve, no hay sesión.
+    supabase.auth.getSession().then(({ data }) => apply(data.session));
+
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") return;
+      // Supabase recomienda no llamar a la API dentro del callback: lo diferimos.
+      setTimeout(() => apply(session), 0);
     });
 
-    // Comprueba con el servidor que la sesión guardada sigue siendo válida
-    // (usuario borrado, token caducado...) y trae los datos actualizados.
-    if (pb.authStore.isValid) {
-      pb.collection("users")
-        .authRefresh()
-        .catch((err) => {
-          if (err?.status === 401 || err?.status === 403 || err?.status === 404) {
-            pb.authStore.clear();
-          }
-        });
-    } else {
-      pb.authStore.clear();
-    }
-
-    return () => unsubscribe();
+    return () => {
+      active = false;
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
-  const signIn = (email, password) =>
-    pb.collection("users").authWithPassword(email, password);
-
-  const signUp = async ({ email, password, passwordConfirm, type, name, businessName }) => {
-    await pb.collection("users").create({
-      email,
-      password,
-      passwordConfirm,
-      type,
-      name,
-      business_name: type === "comerciante" ? businessName : "",
-    });
-    return signIn(email, password);
+  const signIn = async (email, password) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
   };
 
-  const signOut = () => pb.authStore.clear();
+  /** Devuelve { needsConfirmation: true } si el proyecto exige confirmar el email. */
+  const signUp = async ({ email, password, type, name, businessName }) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { type, name, business_name: type === "comerciante" ? businessName : "" } },
+    });
+    if (error) throw error;
+    // Con la confirmación activada, Supabase no da sesión ni avisa de emails repetidos.
+    if (data.user && data.user.identities?.length === 0) {
+      throw new Error("User already registered");
+    }
+    return { needsConfirmation: !data.session };
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+  };
+
+  const updateProfile = useCallback(
+    async (fields) => {
+      const { error } = await supabase.from("profiles").update(fields).eq("id", user.id);
+      if (error) throw error;
+      setUser((u) => ({ ...u, ...fields }));
+    },
+    [user?.id]
+  );
 
   const value = {
     user,
+    loading,
     isAuthenticated: !!user,
     isMerchant: user?.type === "comerciante",
     signIn,
     signUp,
     signOut,
+    updateProfile,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {loading ? (
+        <div className="flex min-h-screen items-center justify-center">
+          <span className="h-8 w-8 animate-spin rounded-full border-2 border-line border-t-accent" aria-label="Cargando" />
+        </div>
+      ) : (
+        children
+      )}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

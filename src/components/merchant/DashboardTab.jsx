@@ -69,7 +69,7 @@ const DashboardTab = ({ events, venues, setActiveTab }) => {
                     <p className="truncate font-semibold">{e.title}</p>
                     <p className="truncate text-sm text-muted">
                       {e.start_time || 'Sin hora'}
-                      {e.expand?.venue?.name && ` · ${e.expand.venue.name}`}
+                      {e.venue?.name && ` · ${e.venue.name}`}
                     </p>
                   </div>
                   <span className="tag shrink-0">

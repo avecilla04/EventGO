@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { MapPin, Search, Store, ArrowUpRight, X } from "lucide-react";
-import pb from "@/lib/pocketbase";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import LoginRequired from "@/components/LoginRequired";
 import EmptyState from "@/components/EmptyState";
@@ -24,14 +24,20 @@ export default function VenuesPage() {
     let cancelled = false;
     setLoading(true);
     setError("");
-    pb.collection("venues")
-      .getFullList({ sort: "name" })
-      .then((data) => !cancelled && setVenues(data))
-      .catch((err) => {
-        console.error("Error loading venues:", err);
-        if (!cancelled) setError("No se pudieron cargar los locales.");
-      })
-      .finally(() => !cancelled && setLoading(false));
+    supabase
+      .from("venues")
+      .select("id, name, address, description")
+      .order("name")
+      .then(({ data, error: err }) => {
+        if (cancelled) return;
+        if (err) {
+          console.error("Error loading venues:", err);
+          setError("No se pudieron cargar los locales.");
+        } else {
+          setVenues(data);
+        }
+        setLoading(false);
+      });
     return () => {
       cancelled = true;
     };

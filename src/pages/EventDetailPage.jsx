@@ -3,13 +3,13 @@ import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, MapPin, CalendarDays, Clock, Eye, Share2, Navigation, ChevronRight, CalendarX } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import pb from "@/lib/pocketbase";
+import { supabase, GUEST_EVENT_COLUMNS } from "@/lib/supabase";
 import { categoryIcon, coverUrl, formatDate, formatTimeRange } from "@/lib/events";
 import LoginRequired from "@/components/LoginRequired";
 import EmptyState from "@/components/EmptyState";
 import useDocumentTitle from "@/lib/useDocumentTitle";
 
-/** Cuenta una visita por evento y sesión del navegador (ver backend/pb_hooks/views.pb.js). */
+/** Cuenta una visita por evento y sesión del navegador (función register_event_view en schema.sql). */
 function registerView(eventId) {
   const key = `eventgo:viewed:${eventId}`;
   try {
@@ -18,7 +18,7 @@ function registerView(eventId) {
   } catch {
     // Sin sessionStorage (modo privado estricto): contamos igualmente.
   }
-  pb.send(`/api/eventgo/events/${eventId}/view`, { method: "POST" }).catch(() => {});
+  supabase.rpc("register_event_view", { p_event_id: eventId }).then(() => {}, () => {});
   return true;
 }
 
@@ -46,15 +46,17 @@ const EventDetailPage = () => {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    pb.collection("events")
-      .getOne(id, { expand: isAuthenticated ? "venue" : undefined })
-      .then((record) => {
+    supabase
+      .from("events")
+      .select(isAuthenticated ? "*, venue:venues(id, name, address)" : GUEST_EVENT_COLUMNS)
+      .eq("id", id)
+      .maybeSingle()
+      .then(({ data }) => {
         if (cancelled) return;
-        if (isAuthenticated && registerView(record.id)) record.views = (record.views || 0) + 1;
-        setEvent(record);
-      })
-      .catch(() => !cancelled && setEvent(null))
-      .finally(() => !cancelled && setLoading(false));
+        if (data && isAuthenticated && registerView(data.id)) data.views = (data.views || 0) + 1;
+        setEvent(data || null);
+        setLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -93,7 +95,7 @@ const EventDetailPage = () => {
     );
   }
 
-  const venue = event.expand?.venue;
+  const venue = event.venue;
   const longDate = formatDate(event.date, { weekday: "long", day: "numeric", month: "long" });
   const dateLabel = longDate && longDate.charAt(0).toUpperCase() + longDate.slice(1);
   const timeLabel = formatTimeRange(event.start_time, event.end_time);
@@ -104,7 +106,7 @@ const EventDetailPage = () => {
     <div className="page pt-4 sm:pt-6">
       {/* Portada */}
       <div className="relative h-72 overflow-hidden rounded-[28px] bg-ink sm:h-[440px]">
-        <img className="h-full w-full object-cover" alt="" src={coverUrl(event, "1600x0")} />
+        <img className="h-full w-full object-cover" alt="" src={coverUrl(event)} />
         <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/40 to-transparent" />
         <Link
           to="/"

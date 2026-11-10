@@ -16,7 +16,6 @@ dist/
 desktop.ini
 Thumbs.db
 
-# PocketBase: datos y ejecutable no se suben (las migraciones y hooks sí)
-backend/pb_data/
-backend/*.exe
-backend/pocketbase
+# Supabase CLI (si se usa en local)
+supabase/.temp/
+supabase/.branches/

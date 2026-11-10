@@ -58,14 +58,23 @@ const AuthPage = () => {
         await signIn(formData.email.trim(), formData.password);
         toast({ title: '¡Bienvenido de vuelta!', className: 'success-toast' });
       } else {
-        await signUp({
+        const { needsConfirmation } = await signUp({
           email: formData.email.trim(),
           password: formData.password,
-          passwordConfirm: formData.confirmPassword,
           type: userType,
           name: formData.name.trim(),
           businessName: formData.businessName.trim(),
         });
+        if (needsConfirmation) {
+          toast({
+            title: 'Revisa tu email',
+            description: 'Te hemos enviado un enlace para confirmar la cuenta.',
+            className: 'info-toast',
+            duration: 10000,
+          });
+          setIsLogin(true);
+          return;
+        }
         toast({
           title: '¡Cuenta creada!',
           description: userType === 'comerciante'
@@ -77,7 +86,7 @@ const AuthPage = () => {
     } catch (error) {
       toast({
         title: isLogin ? 'No se pudo iniciar sesión' : 'No se pudo crear la cuenta',
-        description: isLogin && error?.status === 400 ? 'Email o contraseña incorrectos.' : errorMessage(error),
+        description: errorMessage(error),
         className: 'error-toast',
       });
     } finally {

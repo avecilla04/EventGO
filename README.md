@@ -16,45 +16,44 @@ The project aims to improve the way users discover leisure opportunities by usin
 
 - JavaScript, React 18 and Vite 7
 - Tailwind CSS
-- PocketBase (database, authentication, file storage and API)
+- Supabase (PostgreSQL database, authentication and file storage)
+- Vercel (hosting)
 - VS Code
 
 ## Getting Started
 
-Requirements: Node.js 20.19 or later and [PocketBase 0.34.2](https://pocketbase.io/docs/) for Windows
-(place `pocketbase.exe` inside `backend/`).
+Requirements: Node.js 20.19 or later and a free [Supabase](https://supabase.com) project.
+
+1. In the Supabase dashboard, open **SQL Editor** and run [`supabase/schema.sql`](supabase/schema.sql).
+   It creates the tables, access rules, image storage and the view counter.
+2. In **Authentication > Sign In / Providers > Email**, disable **Confirm email** (optional, recommended for demos).
+3. Copy `.env.example` to `.env` and fill in the project URL and anon key (**Project Settings > API**).
+4. Run the app:
 
 ```bash
-# Terminal 1 - backend (http://127.0.0.1:8090, admin panel at /_/)
-npm run backend
-
-# Terminal 2 - frontend (http://localhost:5173)
 npm install
-npm run dev
+npm run dev   # http://localhost:5173
 ```
-
-On first start PocketBase applies the migrations in `backend/pb_migrations/` and creates an empty database.
-Copy `.env.example` to `.env` if the backend runs on a different URL.
 
 ## Project Structure
 
 ```
-backend/
-  pb_migrations/   database schema and access rules
-  pb_hooks/        server-side logic (event view counter)
+supabase/
+  schema.sql       database schema, row level security and storage rules
 public/            static files
 src/
   pages/           one page per route
   components/      navbar, event cards, merchant dashboard, UI components
   contexts/        authentication state
-  lib/             PocketBase client and helpers
+  lib/             Supabase client, image upload and helpers
 ```
 
 ## Security
 
-Access rules are enforced server-side by PocketBase: guests only see event titles and images,
-users can only modify their own data, and merchants can only publish events in venues they own.
-Database files, executables and environment variables are excluded from the repository.
+Access is enforced in the database with column privileges, Row Level Security and CHECK constraints:
+guests only see event titles, dates and images; users can only modify their own data; merchants can only
+publish events in venues they own, and the view counter can only change through a dedicated function.
+Environment variables are excluded from the repository.
 
 ## Project Status
 

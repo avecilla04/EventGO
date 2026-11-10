@@ -2,11 +2,10 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import pb from '@/lib/pocketbase';
 import { errorMessage } from '@/lib/events';
 
 const SettingsTab = () => {
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
   const { toast } = useToast();
   const [form, setForm] = useState({ name: user.name || '', business_name: user.business_name || '' });
   const [saving, setSaving] = useState(false);
@@ -18,11 +17,7 @@ const SettingsTab = () => {
     if (saving) return;
     try {
       setSaving(true);
-      // El SDK actualiza la sesión con los datos nuevos automáticamente.
-      await pb.collection('users').update(user.id, {
-        name: form.name.trim(),
-        business_name: form.business_name.trim(),
-      });
+      await updateProfile({ name: form.name.trim(), business_name: form.business_name.trim() });
       toast({ title: 'Perfil actualizado', className: 'success-toast' });
     } catch (err) {
       toast({ title: 'No se pudo guardar', description: errorMessage(err), className: 'error-toast' });
