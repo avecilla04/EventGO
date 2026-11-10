@@ -1,65 +1,75 @@
-# EventGo
+# EventGO
 
-App web para descubrir planes de tardeo y noche en bares y locales.
-Los **clientes** buscan eventos por tipo, día o ciudad; los **comerciantes** registran sus locales y publican eventos.
+EventGO is a personal web application designed to help users discover events, activities and leisure options in an intuitive and accessible way.
 
-- Frontend: React 18 + Vite 7 + Tailwind CSS
-- Backend: [PocketBase](https://pocketbase.io) 0.34.2 (base de datos, usuarios, archivos y API)
+The project aims to improve the way users discover leisure opportunities by using event information and promotional content to provide relevant recommendations.
 
-## Arrancar
+## Main Features
 
-Necesitas Node.js 20.19 o superior (`.nvmrc`).
+- Discovery of events and leisure activities, with quick filters (today, tomorrow, this weekend), categories and search by city or "near me"
+- Event and venue information: date, schedule, location, directions and sharing
+- Venue profiles that users can follow
+- Merchant dashboard to register venues, publish events with cover images and track views
+- User-friendly, responsive interface
+
+## Technologies
+
+- JavaScript, React 18 and Vite 7
+- Tailwind CSS
+- PocketBase (database, authentication, file storage and API)
+- VS Code
+
+## Getting Started
+
+Requirements: Node.js 20.19 or later and [PocketBase 0.34.2](https://pocketbase.io/docs/) for Windows
+(place `pocketbase.exe` inside `backend/`).
 
 ```bash
-# Terminal 1: backend (http://127.0.0.1:8090, panel de administración en /_/)
+# Terminal 1 - backend (http://127.0.0.1:8090, admin panel at /_/)
 npm run backend
 
-# Terminal 2: frontend (http://localhost:5173)
-npm install   # solo la primera vez
+# Terminal 2 - frontend (http://localhost:5173)
+npm install
 npm run dev
 ```
 
-`pocketbase.exe` y `backend/pb_data/` no se suben a git. En un equipo nuevo, descarga
-PocketBase 0.34.2 para Windows y deja el `.exe` en `backend/`; al arrancar aplicará las
-migraciones y creará una base de datos vacía.
+On first start PocketBase applies the migrations in `backend/pb_migrations/` and creates an empty database.
+Copy `.env.example` to `.env` if the backend runs on a different URL.
 
-## Estructura
+## Project Structure
 
 ```
 backend/
-  pb_migrations/   esquema y reglas de acceso de la base de datos (versionado)
-  pb_hooks/        lógica de servidor (contador de vistas de eventos)
-  pb_data/         datos e imágenes subidas (NO se sube a git)
-public/            archivos estáticos (.htaccess para Apache/Hostinger)
+  pb_migrations/   database schema and access rules
+  pb_hooks/        server-side logic (event view counter)
+public/            static files
 src/
-  pages/           una página por ruta
-  components/      barra de navegación, panel de comerciante y componentes de UI
-  contexts/        sesión (AuthContext)
-  lib/             cliente de PocketBase, categorías, fechas y utilidades
+  pages/           one page per route
+  components/      navbar, event cards, merchant dashboard, UI components
+  contexts/        authentication state
+  lib/             PocketBase client and helpers
 ```
 
-## Reglas y permisos
+## Security
 
-| Quién | Puede |
-|---|---|
-| Invitado | Ver título y foto de los próximos eventos |
-| Cliente | Ver eventos y locales completos, seguir locales |
-| Comerciante | Lo mismo que el cliente + crear/editar/borrar **sus** locales y eventos |
+Access rules are enforced server-side by PocketBase: guests only see event titles and images,
+users can only modify their own data, and merchants can only publish events in venues they own.
+Database files, executables and environment variables are excluded from the repository.
 
-Las reglas se aplican en el servidor (`backend/pb_migrations/1794355200_eventgo_hardening.js`):
-nadie puede crear ni modificar registros a nombre de otro usuario, asociar eventos a un local
-ajeno, cambiar su tipo de cuenta ni falsear el contador de vistas.
+## Project Status
 
-## Variables de entorno
+**Work in progress**
 
-`.env` (cópialo de `.env.example`):
+EventGO is currently under development and is not publicly deployed.
 
-```
-VITE_POCKETBASE_URL=http://127.0.0.1:8090
-```
+## About the Project
 
-## Desplegar
+EventGO was created as a personal project to apply and expand my knowledge in web development while building a real-world application from the initial idea to its implementation.
 
-`npm run build` genera `dist/`. Súbelo a cualquier hosting estático; el `.htaccess` ya
-configura las rutas de la SPA y la caché en Apache. PocketBase debe ejecutarse en un
-servidor, con `VITE_POCKETBASE_URL` apuntando a su URL pública.
+## Developer
+
+**Antonio Avecilla Rodríguez**
+
+Computer Engineering student specializing in Information Systems at Pablo de Olavide University.
+
+[LinkedIn](https://www.linkedin.com/in/antonio-avecilla-rodriguez)
