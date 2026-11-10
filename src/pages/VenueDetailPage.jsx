@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Calendar, MapPin, Globe, Instagram, Heart } from "lucide-react";
+import { ArrowLeft, MapPin, Globe, Instagram, Heart, CalendarX, Store, Navigation } from "lucide-react";
 import pb from "@/lib/pocketbase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
-import { Button } from "@/components/ui/button";
 import LoginRequired from "@/components/LoginRequired";
-import { coverUrl, errorMessage, formatDate, todayISO } from "@/lib/events";
+import EmptyState from "@/components/EmptyState";
+import EventCard from "@/components/EventCard";
+import { errorMessage, todayISO } from "@/lib/events";
 import { instagramUrl, safeWebsite } from "@/lib/links";
 import useDocumentTitle from "@/lib/useDocumentTitle";
 
@@ -61,14 +62,14 @@ export default function VenueDetailPage() {
       if (!followId) {
         const created = await pb.collection("venue_follows").create({ user: user.id, venue: venue.id });
         setFollowId(created.id);
-        toast({ title: "❤️ Ahora sigues este local", className: "success-toast" });
+        toast({ title: "Ahora sigues este local", className: "success-toast" });
       } else {
         await pb.collection("venue_follows").delete(followId);
         setFollowId(null);
         toast({ title: "Has dejado de seguir este local", className: "info-toast" });
       }
     } catch (err) {
-      toast({ title: "❌ No se pudo actualizar", description: errorMessage(err), className: "error-toast" });
+      toast({ title: "No se pudo actualizar", description: errorMessage(err), className: "error-toast" });
     } finally {
       setFollowLoading(false);
     }
@@ -84,21 +85,19 @@ export default function VenueDetailPage() {
   }
 
   if (loading) {
-    return <div className="min-h-[60vh] flex items-center justify-center text-slate-500">Cargando local...</div>;
+    return (
+      <div className="page animate-pulse pt-6">
+        <div className="h-56 rounded-[28px] bg-line" />
+      </div>
+    );
   }
 
   if (!venue) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center bg-slate-50 text-slate-800 px-4">
-        <div className="text-center">
-          <div className="text-6xl mb-4">😕</div>
-          <h2 className="text-2xl font-bold mb-2">Local no encontrado</h2>
-          <p className="text-slate-500 mb-6">El local que buscas no existe o no está disponible.</p>
-          <Link to="/locales" className="btn-primary inline-flex items-center">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Volver a locales
-          </Link>
-        </div>
+      <div className="page py-16">
+        <EmptyState icon={Store} title="Local no encontrado" text="El local que buscas no existe o no está disponible.">
+          <Link to="/locales" className="btn-dark">Ver locales</Link>
+        </EmptyState>
       </div>
     );
   }
@@ -106,85 +105,90 @@ export default function VenueDetailPage() {
   const website = safeWebsite(venue.website);
   const instagram = instagramUrl(venue.instagram);
   const isOwner = venue.user_id === user.id;
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${venue.name} ${venue.address || ""}`)}`;
 
   return (
-    <div className="min-h-screen bg-white py-10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <Link to="/locales" className="inline-flex items-center text-slate-600 hover:text-slate-900 mb-6">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Volver a locales
+    <div className="page pt-4 sm:pt-6">
+      <div className="glow-bg relative overflow-hidden rounded-[28px] px-6 pb-8 pt-16 text-white sm:px-10 sm:pb-10 sm:pt-20">
+        <Link
+          to="/locales"
+          className="absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3.5 py-2 text-sm font-medium ring-1 ring-white/15 backdrop-blur transition hover:bg-white/15"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Locales
         </Link>
 
-        <div className="merchant-panel mb-8">
-          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900 mb-2">{venue.name}</h1>
-              <a
-                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue.address || venue.name)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-slate-500 hover:text-blue-600 inline-flex items-center text-sm mb-4"
-              >
-                <MapPin className="h-4 w-4 mr-1.5" />
-                {venue.address || "Sin dirección"}
-              </a>
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex items-end gap-5">
+            <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl bg-white font-display text-4xl font-extrabold text-ink shadow-lift">
+              {venue.name.charAt(0).toUpperCase()}
+            </span>
+            <div className="min-w-0">
+              <h1 className="text-3xl font-extrabold sm:text-4xl">{venue.name}</h1>
+              <p className="mt-1 flex items-center gap-1.5 text-white/70">
+                <MapPin className="h-4 w-4 shrink-0" />
+                <span className="truncate">{venue.address || "Sin dirección"}</span>
+              </p>
             </div>
+          </div>
 
+          <div className="flex flex-wrap gap-2">
             {!isOwner && (
-              <Button
+              <button
                 onClick={handleToggleFollow}
                 disabled={followLoading}
-                className={followId ? "" : "btn-primary"}
-                variant={followId ? "outline" : "default"}
+                className={followId ? "btn bg-white text-ink hover:bg-white/90" : "btn-primary"}
               >
-                <Heart className={`h-4 w-4 mr-2 ${followId ? "fill-red-500 text-red-500" : ""}`} />
+                <Heart className={`h-4 w-4 ${followId ? "fill-accent text-accent" : ""}`} />
                 {followLoading ? "Guardando..." : followId ? "Siguiendo" : "Seguir"}
-              </Button>
+              </button>
             )}
-          </div>
-
-          {venue.description && <p className="text-slate-700 mb-4 whitespace-pre-line">{venue.description}</p>}
-
-          <div className="flex flex-wrap gap-4 text-sm">
-            {website && (
-              <a href={website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center">
-                <Globe className="h-4 w-4 mr-1" />
-                Sitio web
-              </a>
-            )}
-            {instagram && (
-              <a href={instagram.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center">
-                <Instagram className="h-4 w-4 mr-1" />
-                @{instagram.handle}
-              </a>
-            )}
+            <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="btn bg-white/10 text-white ring-1 ring-white/20 hover:bg-white/15">
+              <Navigation className="h-4 w-4" />
+              Cómo llegar
+            </a>
           </div>
         </div>
+      </div>
 
-        <h2 className="text-2xl font-bold text-slate-900 mb-4">Próximos eventos</h2>
+      <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_300px]">
+        <section>
+          <h2 className="section-title !text-2xl">Próximos eventos</h2>
+          {events.length > 0 ? (
+            <div className="mt-5 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2">
+              {events.map((event) => (
+                <EventCard key={event.id} event={event} showVenue={false} />
+              ))}
+            </div>
+          ) : (
+            <div className="mt-5">
+              <EmptyState icon={CalendarX} title="Sin eventos próximos" text="Síguelo para enterarte cuando publique nuevos planes." />
+            </div>
+          )}
+        </section>
 
-        {events.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {events.map((event) => (
-              <Link key={event.id} to={`/evento/${event.id}`} className="event-card block">
-                <div className="overflow-hidden rounded-xl mb-4">
-                  <img className="event-image !mb-0" src={coverUrl(event)} alt={`Portada de ${event.title}`} loading="lazy" decoding="async" />
-                </div>
-                <h3 className="font-bold text-slate-800 mb-2">{event.title}</h3>
-                <div className="flex flex-wrap gap-2 text-sm">
-                  <span className="date-badge inline-flex items-center">
-                    <Calendar className="h-3 w-3 mr-1" />
-                    {formatDate(event.date) || "Sin fecha"}
-                    {event.start_time && ` · ${event.start_time}`}
-                  </span>
-                  {event.category && <span className="stats-badge">{event.category}</span>}
-                </div>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <p className="text-slate-500">Este local no tiene eventos próximos.</p>
-        )}
+        <aside className="panel h-max space-y-4">
+          <h2 className="font-display text-lg font-semibold">Sobre el local</h2>
+          <p className="whitespace-pre-line text-sm leading-relaxed text-ink/75">
+            {venue.description || "Este local todavía no ha añadido una descripción."}
+          </p>
+          {(website || instagram) && (
+            <div className="space-y-2 border-t border-line pt-4 text-sm">
+              {website && (
+                <a href={website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 font-medium text-ink hover:text-accent">
+                  <Globe className="h-4 w-4 text-muted" />
+                  {new URL(website).hostname.replace(/^www\./, "")}
+                </a>
+              )}
+              {instagram && (
+                <a href={instagram.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 font-medium text-ink hover:text-accent">
+                  <Instagram className="h-4 w-4 text-muted" />
+                  @{instagram.handle}
+                </a>
+              )}
+            </div>
+          )}
+        </aside>
       </div>
     </div>
   );

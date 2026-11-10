@@ -1,14 +1,16 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, CalendarClock, Eye, MapPin, Plus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { formatDate, todayISO } from '@/lib/events';
+import { CalendarClock, CalendarCheck, Eye, Store, Plus, ArrowRight, CalendarX } from 'lucide-react';
+import { dateParts, todayISO } from '@/lib/events';
+import EmptyState from '@/components/EmptyState';
 
 const StatCard = ({ icon: Icon, label, value }) => (
-  <div className="dashboard-card">
-    <Icon className="h-6 w-6 text-blue-600 mb-3" />
-    <p className="text-3xl font-bold text-slate-800">{value}</p>
-    <p className="text-slate-500 text-sm">{label}</p>
+  <div className="panel">
+    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-soft">
+      <Icon className="h-5 w-5 text-accent" />
+    </span>
+    <p className="mt-4 font-display text-3xl font-bold">{value}</p>
+    <p className="text-sm text-muted">{label}</p>
   </div>
 );
 
@@ -22,57 +24,70 @@ const DashboardTab = ({ events, venues, setActiveTab }) => {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
       {venues.length === 0 && (
-        <div className="merchant-panel border-blue-200 bg-blue-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="glow-bg flex flex-col gap-5 rounded-3xl p-6 text-white sm:flex-row sm:items-center sm:justify-between sm:p-8">
           <div>
-            <h2 className="font-bold text-lg text-slate-800">Primer paso: registra tu local</h2>
-            <p className="text-slate-600 text-sm">Necesitas al menos un local para poder publicar eventos.</p>
+            <p className="eyebrow">Primer paso</p>
+            <h2 className="mt-1 text-2xl font-bold">Registra tu local</h2>
+            <p className="mt-1 text-white/70">Necesitas al menos un local para poder publicar eventos.</p>
           </div>
-          <Button className="btn-primary" onClick={() => setActiveTab('venues')}>
-            <MapPin className="h-4 w-4 mr-2" />
+          <button className="btn-primary shrink-0" onClick={() => setActiveTab('venues')}>
+            <Store className="h-4 w-4" />
             Registrar local
-          </Button>
+          </button>
         </div>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard icon={CalendarClock} label="Eventos próximos" value={upcoming.length} />
-        <StatCard icon={Calendar} label="Eventos publicados" value={events.length} />
+        <StatCard icon={CalendarCheck} label="Eventos publicados" value={events.length} />
         <StatCard icon={Eye} label="Vistas totales" value={totalViews} />
-        <StatCard icon={MapPin} label="Locales" value={venues.length} />
+        <StatCard icon={Store} label="Locales" value={venues.length} />
       </div>
 
-      <div className="merchant-panel">
-        <div className="flex items-center justify-between mb-4 gap-4">
-          <h2 className="text-xl font-bold text-slate-800">Próximos eventos</h2>
+      <div className="panel">
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <h2 className="font-display text-xl font-semibold">Próximos eventos</h2>
           {venues.length > 0 && (
-            <Button className="btn-primary" onClick={() => setActiveTab('events')}>
-              <Plus className="h-4 w-4 mr-2" />
+            <button className="btn-primary btn-sm" onClick={() => setActiveTab('events')}>
+              <Plus className="h-4 w-4" />
               Crear evento
-            </Button>
+            </button>
           )}
         </div>
 
         {upcoming.length > 0 ? (
-          <ul className="divide-y divide-slate-100">
-            {upcoming.slice(0, 5).map((e) => (
-              <li key={e.id} className="py-3 flex items-center justify-between gap-4">
-                <div>
-                  <p className="font-semibold text-slate-800">{e.title}</p>
-                  <p className="text-sm text-slate-500">
-                    {formatDate(e.date)}
-                    {e.start_time && ` · ${e.start_time}`}
-                    {e.expand?.venue?.name && ` · ${e.expand.venue.name}`}
-                  </p>
-                </div>
-                <span className="stats-badge inline-flex items-center flex-shrink-0">
-                  <Eye className="h-3 w-3 mr-1" />
-                  {e.views || 0}
-                </span>
-              </li>
-            ))}
+          <ul className="divide-y divide-line">
+            {upcoming.slice(0, 5).map((e) => {
+              const parts = dateParts(e.date);
+              return (
+                <li key={e.id} className="flex items-center gap-4 py-3">
+                  <div className="w-12 shrink-0 rounded-xl bg-canvas py-1.5 text-center">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-accent">{parts?.month}</p>
+                    <p className="font-display text-lg font-bold leading-none">{parts?.day}</p>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold">{e.title}</p>
+                    <p className="truncate text-sm text-muted">
+                      {e.start_time || 'Sin hora'}
+                      {e.expand?.venue?.name && ` · ${e.expand.venue.name}`}
+                    </p>
+                  </div>
+                  <span className="tag shrink-0">
+                    <Eye className="h-3 w-3" />
+                    {e.views || 0}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         ) : (
-          <p className="text-slate-500">No tienes eventos próximos.</p>
+          <EmptyState icon={CalendarX} title="No tienes eventos próximos" text="Publica tu próximo plan para que la gente lo descubra.">
+            {venues.length > 0 && (
+              <button className="btn-dark" onClick={() => setActiveTab('events')}>
+                Crear evento <ArrowRight className="h-4 w-4" />
+              </button>
+            )}
+          </EmptyState>
         )}
       </div>
     </motion.div>

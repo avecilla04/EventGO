@@ -1,10 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Calendar, User, Menu, X, ChevronDown, Compass, PlusSquare, LogOut } from 'lucide-react';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { Menu, X, ChevronDown, LayoutDashboard, LogOut, Compass, Store } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import { Button } from '@/components/ui/button';
+import Logo from '@/components/Logo';
+
+const LINKS = [
+  { to: '/', label: 'Eventos', Icon: Compass, end: true },
+  { to: '/locales', label: 'Locales', Icon: Store },
+];
+
+const Avatar = ({ name }) => (
+  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-soft font-display text-sm font-bold text-accent">
+    {(name || '?').trim().charAt(0).toUpperCase()}
+  </span>
+);
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -15,8 +25,6 @@ const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
-
-  const isActive = (path) => location.pathname === path;
 
   // Cierra los menús al cambiar de página o al pulsar fuera.
   useEffect(() => {
@@ -29,162 +37,138 @@ const Navbar = () => {
     const onClick = (e) => {
       if (profileRef.current && !profileRef.current.contains(e.target)) setIsProfileOpen(false);
     };
+    const onKey = (e) => e.key === 'Escape' && setIsProfileOpen(false);
     document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('keydown', onKey);
+    };
   }, [isProfileOpen]);
 
   const handleLogout = () => {
     signOut();
-    toast({
-      title: "¡Hasta pronto!",
-      description: "Has cerrado sesión correctamente.",
-      className: "info-toast"
-    });
+    toast({ title: 'Has cerrado sesión', description: '¡Hasta pronto!', className: 'info-toast' });
     navigate('/');
   };
 
-  const handlePublishEvent = () => {
-    navigate('/comerciante');
-    setIsProfileOpen(false);
-    setIsOpen(false);
-  };
-
-  const handleDiscoverEvents = () => {
-    navigate('/');
-    setIsProfileOpen(false);
-    setIsOpen(false);
-  };
+  const linkClass = ({ isActive }) => `nav-link ${isActive ? 'active' : ''}`;
 
   return (
-    <motion.nav
-      initial={{ y: -100 }}
-      animate={{ y: 0 }}
-      className="bg-white/85 backdrop-blur-xl border-b border-slate-200/80 shadow-sm sticky top-0 z-50"
-    >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <Link to="/" className="flex items-center space-x-2">
-            <div className="bg-blue-600 p-2 rounded-lg">
-              <Calendar className="h-6 w-6 text-white" />
-            </div>
-            <span className="text-blue-600 text-xl font-bold">EventGo</span>
-          </Link>
+    <header className="sticky top-0 z-50 border-b border-line/80 bg-canvas/80 backdrop-blur-xl">
+      <div className="page flex h-16 items-center justify-between">
+        <Logo />
 
-          {/* Desktop */}
-          <div className="hidden md:flex items-center space-x-6">
-            <Link to="/" className={`nav-link ${isActive('/') ? 'active' : ''}`}>
-              Eventos
-            </Link>
-            <Link to="/locales" className={`nav-link ${isActive('/locales') ? 'active' : ''}`}>
-              Locales
-            </Link>
+        {/* Escritorio */}
+        <nav className="hidden items-center gap-1 md:flex">
+          {LINKS.map(({ to, label, end }) => (
+            <NavLink key={to} to={to} end={end} className={linkClass}>
+              {label}
+            </NavLink>
+          ))}
+        </nav>
 
-            {user ? (
-              <div className="relative" ref={profileRef}>
-                <Button
-                  onClick={() => setIsProfileOpen(!isProfileOpen)}
-                  variant="outline"
-                  className="flex items-center border-slate-300/90 bg-white/80 hover:bg-white"
+        <div className="hidden items-center gap-2 md:flex">
+          {user ? (
+            <div className="relative" ref={profileRef}>
+              <button
+                onClick={() => setIsProfileOpen((o) => !o)}
+                className="flex items-center gap-2 rounded-full border border-line bg-white py-1 pl-1 pr-3 text-sm font-medium transition hover:border-ink/20"
+                aria-expanded={isProfileOpen}
+                aria-haspopup="menu"
+              >
+                <Avatar name={user.name || user.email} />
+                <span className="max-w-[140px] truncate">{user.name || 'Mi cuenta'}</span>
+                <ChevronDown className={`h-4 w-4 text-muted transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isProfileOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 mt-2 w-60 overflow-hidden rounded-2xl border border-line bg-white p-1.5 shadow-lift animate-in fade-in-0 zoom-in-95"
                 >
-                  <User className="h-4 w-4 mr-2" />
-                  <span className="max-w-[140px] truncate">{user.name || "Mi perfil"}</span>
-                  <ChevronDown className={`h-4 w-4 ml-1 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
-                </Button>
-
-                {isProfileOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="absolute right-0 mt-2 w-52 bg-white/95 backdrop-blur-md rounded-xl shadow-xl border border-slate-200 py-1.5"
-                  >
-                    {location.pathname !== "/" && (
-                      <button
-                        onClick={handleDiscoverEvents}
-                        className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 flex items-center"
-                      >
-                        <Compass className="h-4 w-4 mr-2" />
-                        Descubrir eventos
-                      </button>
-                    )}
-
-                    {isMerchant && (
-                      <button onClick={handlePublishEvent} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 flex items-center">
-                        <PlusSquare className="h-4 w-4 mr-2" />
-                        Mi panel de comerciante
-                      </button>
-                    )}
-
-                    <div className="border-t border-slate-200 my-1" />
-
-                    <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center">
-                      <LogOut className="h-4 w-4 mr-2" />
-                      Cerrar Sesión
-                    </button>
-                  </motion.div>
-                )}
-              </div>
-            ) : (
-              <Link to="/auth" className="btn-primary">
-                Acceder
-              </Link>
-            )}
-          </div>
-
-          {/* Mobile button */}
-          <div className="md:hidden">
-            <button onClick={() => setIsOpen(!isOpen)} aria-label="Abrir menú" className="text-slate-700 hover:text-blue-600 transition-colors">
-              {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </button>
-          </div>
+                  <div className="px-3 py-2.5">
+                    <p className="truncate text-sm font-semibold text-ink">{user.name || 'Mi cuenta'}</p>
+                    <p className="truncate text-xs text-muted">{user.email}</p>
+                  </div>
+                  <div className="my-1 h-px bg-line" />
+                  {isMerchant && (
+                    <Link to="/comerciante" role="menuitem" className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-ink hover:bg-canvas">
+                      <LayoutDashboard className="h-4 w-4 text-muted" />
+                      Panel de mi local
+                    </Link>
+                  )}
+                  <button onClick={handleLogout} role="menuitem" className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-red-600 hover:bg-red-50">
+                    <LogOut className="h-4 w-4" />
+                    Cerrar sesión
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Link to="/auth" className="btn-dark">
+              Acceder
+            </Link>
+          )}
         </div>
 
-        {/* Mobile menu */}
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden py-4 space-y-4 border-t border-slate-200/70"
-          >
-            <Link to="/" className={`block nav-link ${isActive('/') ? 'active' : ''}`} onClick={() => setIsOpen(false)}>
-              Eventos
-            </Link>
-            <Link to="/locales" className={`block nav-link ${isActive('/locales') ? 'active' : ''}`} onClick={() => setIsOpen(false)}>
-              Locales
-            </Link>
+        {/* Móvil */}
+        <button
+          onClick={() => setIsOpen((o) => !o)}
+          aria-label={isOpen ? 'Cerrar menú' : 'Abrir menú'}
+          aria-expanded={isOpen}
+          className="flex h-10 w-10 items-center justify-center rounded-full text-ink hover:bg-ink/5 md:hidden"
+        >
+          {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </button>
+      </div>
+
+      {isOpen && (
+        <div className="border-t border-line bg-canvas md:hidden animate-in slide-in-from-top-2 fade-in-0">
+          <nav className="page space-y-1 py-4">
+            {LINKS.map(({ to, label, Icon, end }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={end}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-xl px-3 py-3 text-base font-medium ${isActive ? 'bg-white text-ink shadow-soft' : 'text-muted'}`
+                }
+              >
+                <Icon className="h-5 w-5" />
+                {label}
+              </NavLink>
+            ))}
 
             {user ? (
-              <div className="border-t border-slate-200 pt-4 space-y-2">
-                <p className="px-2 text-sm font-semibold text-slate-500">Mi Perfil</p>
-
-                <button onClick={handleDiscoverEvents} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 flex items-center rounded-md">
-                  <Compass className="h-4 w-4 mr-2" />
-                  Descubrir eventos
-                </button>
-
+              <>
                 {isMerchant && (
-                  <button onClick={handlePublishEvent} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 flex items-center rounded-md">
-                    <PlusSquare className="h-4 w-4 mr-2" />
-                    Mi panel de comerciante
-                  </button>
+                  <Link to="/comerciante" className="flex items-center gap-3 rounded-xl px-3 py-3 text-base font-medium text-muted">
+                    <LayoutDashboard className="h-5 w-5" />
+                    Panel de mi local
+                  </Link>
                 )}
-
-                <div className="border-t border-slate-200 my-1" />
-
-                <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center rounded-md">
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Cerrar Sesión
-                </button>
-              </div>
+                <div className="my-2 h-px bg-line" />
+                <div className="flex items-center justify-between px-3 py-2">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Avatar name={user.name || user.email} />
+                    <span className="truncate text-sm font-medium">{user.name || user.email}</span>
+                  </div>
+                  <button onClick={handleLogout} className="btn-ghost btn-sm text-red-600">
+                    <LogOut className="h-4 w-4" />
+                    Salir
+                  </button>
+                </div>
+              </>
             ) : (
-              <Link to="/auth" className="block btn-primary text-center" onClick={() => setIsOpen(false)}>
+              <Link to="/auth" className="btn-dark mt-3 w-full">
                 Acceder
               </Link>
             )}
-          </motion.div>
-        )}
-      </div>
-    </motion.nav>
+          </nav>
+        </div>
+      )}
+    </header>
   );
 };
 

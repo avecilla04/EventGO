@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useToast } from '@/components/ui/use-toast';
-import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import pb from '@/lib/pocketbase';
 import { errorMessage } from '@/lib/events';
@@ -24,9 +23,9 @@ const SettingsTab = () => {
         name: form.name.trim(),
         business_name: form.business_name.trim(),
       });
-      toast({ title: '✅ Perfil actualizado', className: 'success-toast' });
+      toast({ title: 'Perfil actualizado', className: 'success-toast' });
     } catch (err) {
-      toast({ title: '❌ No se pudo guardar', description: errorMessage(err), className: 'error-toast' });
+      toast({ title: 'No se pudo guardar', description: errorMessage(err), className: 'error-toast' });
     } finally {
       setSaving(false);
     }
@@ -34,10 +33,10 @@ const SettingsTab = () => {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-      <h2 className="text-2xl font-bold text-slate-800">Configuración</h2>
+      <h2 className="section-title">Perfil</h2>
 
-      <form onSubmit={handleSave} className="merchant-panel max-w-2xl">
-        <h3 className="text-xl font-bold text-slate-800 mb-6">Perfil de Comerciante</h3>
+      <form onSubmit={handleSave} className="panel max-w-2xl">
+        <h3 className="mb-6 font-display text-xl font-semibold">Datos de tu cuenta</h3>
         <div className="space-y-4">
           <div>
             <label className="form-label" htmlFor="s-name">Nombre del responsable</label>
@@ -54,9 +53,9 @@ const SettingsTab = () => {
             <input id="s-email" type="email" className="form-input opacity-70" value={user.email || ''} disabled />
           </div>
           <div className="pt-2">
-            <Button type="submit" className="btn-primary" disabled={saving || !dirty}>
+            <button type="submit" className="btn-primary" disabled={saving || !dirty}>
               {saving ? 'Guardando...' : 'Guardar cambios'}
-            </Button>
+            </button>
           </div>
         </div>
       </form>

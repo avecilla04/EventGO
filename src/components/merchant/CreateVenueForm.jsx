@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useToast } from "@/components/ui/use-toast";
-import { Button } from "@/components/ui/button";
 import pb from "@/lib/pocketbase";
 import { useAuth } from "@/contexts/AuthContext";
 import { errorMessage } from "@/lib/events";
@@ -43,7 +42,7 @@ const CreateVenueForm = ({ mode = "create", initialData = null, onSaved, onCance
     if (saving) return;
 
     if (!venueForm.name.trim() || !venueForm.address.trim()) {
-      toast({ title: "❌ Nombre y dirección son obligatorios", className: "error-toast" });
+      toast({ title: "Nombre y dirección son obligatorios", className: "error-toast" });
       return;
     }
 
@@ -61,12 +60,12 @@ const CreateVenueForm = ({ mode = "create", initialData = null, onSaved, onCance
       const saved = isEdit
         ? await pb.collection("venues").update(initialData.id, payload)
         : await pb.collection("venues").create(payload);
-      toast({ title: isEdit ? "🏢 Local actualizado" : "🏢 Local registrado", className: "success-toast" });
+      toast({ title: isEdit ? "Local actualizado" : "Local registrado", className: "success-toast" });
       onSaved?.(saved);
     } catch (err) {
       console.error("Save venue error:", err);
       toast({
-        title: isEdit ? "❌ No se pudo guardar el local" : "❌ No se pudo registrar el local",
+        title: isEdit ? "No se pudo guardar el local" : "No se pudo registrar el local",
         description: errorMessage(err),
         className: "error-toast",
       });
@@ -76,7 +75,8 @@ const CreateVenueForm = ({ mode = "create", initialData = null, onSaved, onCance
   };
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="merchant-panel">
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="panel">
+      <h3 className="mb-6 font-display text-xl font-semibold">{isEdit ? "Editar local" : "Nuevo local"}</h3>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -88,7 +88,7 @@ const CreateVenueForm = ({ mode = "create", initialData = null, onSaved, onCance
             <label className="form-label" htmlFor="v-address">Dirección *</label>
             <input id="v-address" name="address" required maxLength={200} placeholder="Calle Mayor 1, Madrid"
               value={venueForm.address} onChange={handleChange} className="form-input" />
-            <p className="text-xs text-slate-500 mt-1">Incluye la ciudad para que los clientes te encuentren al buscar.</p>
+            <p className="form-hint">Incluye la ciudad para que los clientes te encuentren al buscar.</p>
           </div>
         </div>
         <div>
@@ -109,13 +109,13 @@ const CreateVenueForm = ({ mode = "create", initialData = null, onSaved, onCance
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Button type="submit" className="btn-primary" disabled={saving}>
+        <div className="flex flex-wrap gap-2 border-t border-line pt-5">
+          <button type="submit" className="btn-primary" disabled={saving}>
             {saving ? "Guardando..." : isEdit ? "Guardar cambios" : "Registrar Local"}
-          </Button>
-          <Button type="button" variant="outline" onClick={onCancel}>
+          </button>
+          <button type="button" className="btn-outline" onClick={onCancel}>
             Cancelar
-          </Button>
+          </button>
         </div>
       </form>
     </motion.div>

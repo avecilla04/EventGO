@@ -4,24 +4,20 @@ import { cva } from 'class-variance-authority';
 import React from 'react';
 
 const buttonVariants = cva(
-	'inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
+	'inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-all duration-200 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50',
 	{
 		variants: {
 			variant: {
-				default: 'bg-primary text-primary-foreground hover:bg-primary/90',
-				destructive:
-          'bg-destructive text-destructive-foreground hover:bg-destructive/90',
-				outline:
-          'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
-				secondary:
-          'bg-secondary text-secondary-foreground hover:bg-secondary/80',
-				ghost: 'hover:bg-accent hover:text-accent-foreground',
-				link: 'text-primary underline-offset-4 hover:underline',
+				default: 'bg-accent text-white shadow-glow hover:bg-accent-hover',
+				dark: 'bg-ink text-white hover:bg-ink-soft',
+				outline: 'border border-line bg-white text-ink hover:border-ink/20 hover:bg-canvas',
+				ghost: 'text-ink hover:bg-ink/5',
+				danger: 'border border-line bg-white text-red-600 hover:border-red-200 hover:bg-red-50',
 			},
 			size: {
-				default: 'h-10 px-4 py-2',
-				sm: 'h-9 rounded-md px-3',
-				lg: 'h-11 rounded-md px-8',
+				default: 'px-5 py-2.5 text-sm',
+				sm: 'px-3.5 py-1.5 text-xs',
+				lg: 'px-7 py-3.5 text-base',
 				icon: 'h-10 w-10',
 			},
 		},
@@ -34,13 +30,7 @@ const buttonVariants = cva(
 
 const Button = React.forwardRef(({ className, variant, size, asChild = false, ...props }, ref) => {
 	const Comp = asChild ? Slot : 'button';
-	return (
-		<Comp
-			className={cn(buttonVariants({ variant, size, className }))}
-			ref={ref}
-			{...props}
-		/>
-	);
+	return <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />;
 });
 Button.displayName = 'Button';
 

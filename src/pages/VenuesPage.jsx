@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { MapPin, Search } from "lucide-react";
+import { MapPin, Search, Store, ArrowUpRight, X } from "lucide-react";
 import pb from "@/lib/pocketbase";
 import { useAuth } from "@/contexts/AuthContext";
 import LoginRequired from "@/components/LoginRequired";
+import EmptyState from "@/components/EmptyState";
 import useDocumentTitle from "@/lib/useDocumentTitle";
 
 const normalize = (text) =>
@@ -23,7 +24,6 @@ export default function VenuesPage() {
     let cancelled = false;
     setLoading(true);
     setError("");
-
     pb.collection("venues")
       .getFullList({ sort: "name" })
       .then((data) => !cancelled && setVenues(data))
@@ -32,16 +32,14 @@ export default function VenuesPage() {
         if (!cancelled) setError("No se pudieron cargar los locales.");
       })
       .finally(() => !cancelled && setLoading(false));
-
     return () => {
       cancelled = true;
     };
   }, [isAuthenticated]);
 
-  const filteredVenues = useMemo(() => {
+  const filtered = useMemo(() => {
     const q = normalize(search.trim());
-    if (!q) return venues;
-    return venues.filter((v) => normalize(`${v.name} ${v.address}`).includes(q));
+    return q ? venues.filter((v) => normalize(`${v.name} ${v.address}`).includes(q)) : venues;
   }, [venues, search]);
 
   if (!isAuthenticated) {
@@ -54,52 +52,68 @@ export default function VenuesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white py-10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Descubrir Locales</h1>
-          <p className="text-slate-500">Explora locales y entra a su perfil público.</p>
+    <div className="page pt-10">
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="eyebrow">Directorio</p>
+          <h1 className="mt-2 text-3xl font-extrabold sm:text-4xl">Locales</h1>
+          <p className="mt-2 text-muted">Bares y locales que publican sus planes en EventGo.</p>
         </div>
 
-        <div className="search-input-container mb-8">
-          <Search className="h-5 w-5 text-slate-500 ml-3" />
+        <div className="flex w-full items-center gap-2 rounded-full border border-line bg-white px-4 py-2.5 shadow-soft sm:w-80 focus-within:border-accent focus-within:ring-4 focus-within:ring-accent/10">
+          <Search className="h-4 w-4 shrink-0 text-muted" />
           <input
             type="text"
-            placeholder="Buscar por nombre o dirección..."
+            placeholder="Nombre o ciudad"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="search-input"
+            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted"
             aria-label="Buscar locales"
           />
+          {search && (
+            <button onClick={() => setSearch("")} aria-label="Borrar búsqueda" className="text-muted hover:text-ink">
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
+      </div>
 
+      <div className="mt-8">
         {loading ? (
-          <p className="text-slate-500">Cargando locales...</p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[0, 1, 2].map((i) => <div key={i} className="h-28 animate-pulse rounded-2xl bg-line" />)}
+          </div>
         ) : error ? (
           <p className="text-red-600">{error}</p>
-        ) : filteredVenues.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {filteredVenues.map((venue) => (
+        ) : filtered.length > 0 ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((venue) => (
               <Link
                 key={venue.id}
                 to={`/local/${venue.id}`}
-                className="merchant-panel block hover:shadow-md hover:border-blue-200 transition-all"
+                className="group panel flex items-start gap-4 transition hover:-translate-y-0.5 hover:shadow-lift"
               >
-                <h2 className="font-bold text-xl text-slate-800 mb-2">{venue.name}</h2>
-                <p className="text-slate-500 flex items-center text-sm mb-3">
-                  <MapPin className="h-4 w-4 mr-1.5 flex-shrink-0" />
-                  {venue.address || "Sin dirección"}
-                </p>
-                {venue.description && (
-                  <p className="text-slate-600 text-sm line-clamp-2">{venue.description}</p>
-                )}
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-ink font-display text-lg font-bold text-white transition group-hover:bg-accent">
+                  {venue.name.charAt(0).toUpperCase()}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <h2 className="truncate font-display text-lg font-semibold">{venue.name}</h2>
+                  <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted">
+                    <MapPin className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{venue.address || "Sin dirección"}</span>
+                  </p>
+                  {venue.description && <p className="mt-2 line-clamp-2 text-sm text-ink/70">{venue.description}</p>}
+                </div>
+                <ArrowUpRight className="h-5 w-5 shrink-0 text-muted transition group-hover:text-accent" />
               </Link>
             ))}
           </div>
         ) : (
-          <p className="text-slate-500">
-            {venues.length === 0 ? "Todavía no hay locales registrados." : "No se encontraron locales."}
-          </p>
+          <EmptyState
+            icon={Store}
+            title={venues.length === 0 ? "Todavía no hay locales" : "No hay locales con ese nombre"}
+            text={venues.length === 0 ? "Pronto los bares de tu zona empezarán a publicar." : "Prueba con otro nombre o ciudad."}
+          />
         )}
       </div>
     </div>

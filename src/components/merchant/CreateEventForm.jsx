@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
+import { ImagePlus, X, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import pb from "@/lib/pocketbase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,6 +23,7 @@ const CreateEventForm = ({ venues, mode = "create", initialData = null, onSaved,
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [coverFile, setCoverFile] = useState(null);
+  const [preview, setPreview] = useState(null);
   const [eventForm, setEventForm] = useState(emptyEventForm);
   const coverInputRef = useRef(null);
   const isEdit = mode === "edit" && initialData;
@@ -46,12 +47,23 @@ const CreateEventForm = ({ venues, mode = "create", initialData = null, onSaved,
     if (coverInputRef.current) coverInputRef.current.value = "";
   }, [isEdit, initialData, venues]);
 
+  // Vista previa local de la imagen elegida.
+  useEffect(() => {
+    if (!coverFile) {
+      setPreview(null);
+      return undefined;
+    }
+    const url = URL.createObjectURL(coverFile);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [coverFile]);
+
   const set = (field) => (e) => setEventForm((f) => ({ ...f, [field]: e.target.value }));
 
   const handleCover = (e) => {
     const file = e.target.files?.[0] || null;
     if (file && file.size > MAX_COVER_BYTES) {
-      toast({ title: "⚠️ La imagen supera los 5 MB", className: "error-toast" });
+      toast({ title: "La imagen supera los 5 MB", className: "error-toast" });
       e.target.value = "";
       setCoverFile(null);
       return;
@@ -59,16 +71,17 @@ const CreateEventForm = ({ venues, mode = "create", initialData = null, onSaved,
     setCoverFile(file);
   };
 
+  const clearCover = () => {
+    setCoverFile(null);
+    if (coverInputRef.current) coverInputRef.current.value = "";
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (saving) return;
 
     if (!eventForm.title.trim() || !eventForm.date || !eventForm.venue) {
-      toast({
-        title: "⚠️ Faltan datos",
-        description: "Completa título, fecha y local.",
-        className: "info-toast",
-      });
+      toast({ title: "Faltan datos", description: "Completa título, fecha y local.", className: "info-toast" });
       return;
     }
 
@@ -93,15 +106,12 @@ const CreateEventForm = ({ venues, mode = "create", initialData = null, onSaved,
       // Añadimos el local localmente para no tener que volver a pedirlo.
       saved.expand = { venue: venues.find((v) => v.id === saved.venue) };
 
-      toast({
-        title: isEdit ? "✅ Evento actualizado" : "✅ Evento publicado",
-        className: "success-toast",
-      });
+      toast({ title: isEdit ? "Evento actualizado" : "Evento publicado", className: "success-toast" });
       onSaved?.(saved);
     } catch (err) {
       console.error("Save event error:", err);
       toast({
-        title: isEdit ? "❌ No se pudo guardar el evento" : "❌ No se pudo crear el evento",
+        title: isEdit ? "No se pudo guardar el evento" : "No se pudo crear el evento",
         description: errorMessage(err),
         className: "error-toast",
       });
@@ -110,30 +120,58 @@ const CreateEventForm = ({ venues, mode = "create", initialData = null, onSaved,
     }
   };
 
-  if (venues.length === 0) {
-    return (
-      <div className="merchant-panel text-slate-600">
-        Primero registra un local en la pestaña <strong>Mis Locales</strong> para poder publicar eventos.
-      </div>
-    );
-  }
+  const currentCover = preview || (isEdit && initialData.cover ? coverUrl(initialData) : null);
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="merchant-panel">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="form-label" htmlFor="ev-title">Título *</label>
-          <input id="ev-title" name="title" className="form-input" maxLength={120} required
-            placeholder="Ej.: Tardeo con flamenquito" value={eventForm.title} onChange={set("title")} />
-        </div>
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="panel">
+      <h3 className="font-display text-xl font-semibold">{isEdit ? "Editar evento" : "Nuevo evento"}</h3>
 
-        <div>
-          <label className="form-label" htmlFor="ev-description">Descripción</label>
-          <textarea id="ev-description" name="description" className="form-textarea" maxLength={5000}
-            placeholder="¿Qué plan ofreces?" value={eventForm.description} onChange={set("description")} />
-        </div>
+      <form onSubmit={handleSubmit} className="mt-6 grid gap-6 lg:grid-cols-[1fr_280px]">
+        <div className="space-y-5">
+          <div>
+            <label className="form-label" htmlFor="ev-title">Título *</label>
+            <input id="ev-title" name="title" className="form-input" maxLength={120} required
+              placeholder="Ej.: Tardeo con flamenquito" value={eventForm.title} onChange={set("title")} />
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <span className="form-label">Tipo de plan</span>
+            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Tipo de plan">
+              {EVENT_CATEGORIES.map(({ id, Icon }) => {
+                const active = eventForm.category === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => setEventForm((f) => ({ ...f, category: active ? "" : id }))}
+                    className={`chip !py-1.5 ${active ? "!border-accent !bg-accent-soft !text-accent" : ""}`}
+                  >
+                    <Icon className={`h-4 w-4 ${active ? "" : "text-muted"}`} />
+                    {id}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div>
+              <label className="form-label" htmlFor="ev-date">Fecha *</label>
+              <input id="ev-date" type="date" className="form-input" required
+                min={isEdit ? undefined : todayISO()} value={eventForm.date} onChange={set("date")} />
+            </div>
+            <div>
+              <label className="form-label" htmlFor="ev-start">Empieza</label>
+              <input id="ev-start" type="time" className="form-input" value={eventForm.start_time} onChange={set("start_time")} />
+            </div>
+            <div>
+              <label className="form-label" htmlFor="ev-end">Termina</label>
+              <input id="ev-end" type="time" className="form-input" value={eventForm.end_time} onChange={set("end_time")} />
+            </div>
+          </div>
+
           <div>
             <label className="form-label" htmlFor="ev-venue">Local *</label>
             <select id="ev-venue" className="form-input" value={eventForm.venue} onChange={set("venue")} required>
@@ -143,48 +181,52 @@ const CreateEventForm = ({ venues, mode = "create", initialData = null, onSaved,
               ))}
             </select>
           </div>
-          <div>
-            <label className="form-label" htmlFor="ev-category">Tipo de plan</label>
-            <select id="ev-category" className="form-input" value={eventForm.category} onChange={set("category")}>
-              <option value="">Sin categoría</option>
-              {EVENT_CATEGORIES.map((c) => (
-                <option key={c.id} value={c.id}>{c.icon} {c.id}</option>
-              ))}
-            </select>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="form-label" htmlFor="ev-date">Fecha *</label>
-            <input id="ev-date" type="date" className="form-input" required
-              min={isEdit ? undefined : todayISO()} value={eventForm.date} onChange={set("date")} />
-          </div>
-          <div>
-            <label className="form-label" htmlFor="ev-start">Hora de inicio</label>
-            <input id="ev-start" type="time" className="form-input" value={eventForm.start_time} onChange={set("start_time")} />
-          </div>
-          <div>
-            <label className="form-label" htmlFor="ev-end">Hora de fin</label>
-            <input id="ev-end" type="time" className="form-input" value={eventForm.end_time} onChange={set("end_time")} />
+            <label className="form-label" htmlFor="ev-description">Descripción</label>
+            <textarea id="ev-description" name="description" className="form-textarea" maxLength={5000}
+              placeholder="¿Qué plan ofreces? Música, promociones, dress code..." value={eventForm.description} onChange={set("description")} />
           </div>
         </div>
 
         <div>
-          <label className="form-label" htmlFor="ev-cover">Imagen de portada (JPG, PNG, WEBP o GIF, máx. 5 MB)</label>
-          {isEdit && initialData.cover && !coverFile && (
-            <img src={coverUrl(initialData)} alt="Portada actual" className="h-24 rounded-lg mb-2 object-cover" />
+          <span className="form-label">Portada</span>
+          <label
+            htmlFor="ev-cover"
+            className="group relative flex aspect-[4/3] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-line bg-canvas text-center transition hover:border-accent/50"
+          >
+            {currentCover ? (
+              <>
+                <img src={currentCover} alt="Portada actual" className="absolute inset-0 h-full w-full object-cover" />
+                <span className="absolute inset-x-3 bottom-3 rounded-full bg-white/90 py-1.5 text-xs font-medium opacity-0 shadow-soft transition group-hover:opacity-100">
+                  Cambiar imagen
+                </span>
+              </>
+            ) : (
+              <>
+                <ImagePlus className="h-8 w-8 text-muted transition group-hover:text-accent" />
+                <span className="mt-2 text-sm font-medium">Sube una imagen</span>
+                <span className="mt-0.5 text-xs text-muted">JPG, PNG, WEBP o GIF · máx. 5 MB</span>
+              </>
+            )}
+          </label>
+          <input id="ev-cover" ref={coverInputRef} type="file" accept={ACCEPTED_IMAGES} className="sr-only" onChange={handleCover} />
+          {coverFile && (
+            <button type="button" onClick={clearCover} className="btn-ghost btn-sm mt-2 text-muted">
+              <X className="h-3.5 w-3.5" />
+              Quitar imagen nueva
+            </button>
           )}
-          <input id="ev-cover" ref={coverInputRef} type="file" accept={ACCEPTED_IMAGES} className="form-input" onChange={handleCover} />
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Button type="submit" className="btn-primary" disabled={saving}>
+        <div className="flex flex-wrap gap-2 border-t border-line pt-5 lg:col-span-2">
+          <button type="submit" className="btn-primary" disabled={saving}>
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
             {saving ? "Guardando..." : isEdit ? "Guardar cambios" : "Publicar evento"}
-          </Button>
-          <Button type="button" variant="outline" onClick={onCancel}>
+          </button>
+          <button type="button" className="btn-outline" onClick={onCancel}>
             Cancelar
-          </Button>
+          </button>
         </div>
       </form>
     </motion.div>

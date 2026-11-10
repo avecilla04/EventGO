@@ -1,39 +1,48 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { MapPin, Calendar, Eye, Users, X, Clock, LocateFixed } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import {
+  MapPin, LocateFixed, X, CalendarDays, Sparkles, ArrowRight, Megaphone, CalendarPlus, TrendingUp, SearchX, Loader2,
+} from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import pb from "@/lib/pocketbase";
-import { EVENT_CATEGORIES, coverUrl, formatDate, formatTimeRange, todayISO } from "@/lib/events";
+import { EVENT_CATEGORIES, dateRange, todayISO, formatDate } from "@/lib/events";
+import EventCard, { EventCardSkeleton } from "@/components/EventCard";
+import EmptyState from "@/components/EmptyState";
 import useDocumentTitle from "@/lib/useDocumentTitle";
 
-const FILTERS = [{ id: "Todos", icon: "🎯" }, ...EVENT_CATEGORIES];
+const HERO_IMAGE =
+  "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1800&q=70";
+
+const WHEN = [
+  { id: "all", label: "Cualquier día" },
+  { id: "today", label: "Hoy" },
+  { id: "tomorrow", label: "Mañana" },
+  { id: "weekend", label: "Este finde" },
+];
 
 const normalize = (text) =>
-  String(text || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "");
+  String(text || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
 /** Coordenadas -> nombre de la ciudad (OpenStreetMap, gratuito y sin clave). */
 async function cityFromCoords(lat, lon) {
   const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&accept-language=es&lat=${lat}&lon=${lon}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error("reverse geocoding failed");
-  const data = await res.json();
-  const a = data?.address || {};
+  const a = (await res.json())?.address || {};
   return a.city || a.town || a.village || a.municipality || a.county || "";
 }
 
 export default function HomePage() {
-  const [searchLocation, setSearchLocation] = useState("");
-  const [searchDate, setSearchDate] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState("Todos");
+  const [search, setSearch] = useState("");
+  const [when, setWhen] = useState("all");
+  const [customDate, setCustomDate] = useState("");
+  const [category, setCategory] = useState(null);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [locating, setLocating] = useState(false);
+  const dateInputRef = useRef(null);
 
   const { toast } = useToast();
   const { isAuthenticated, isMerchant } = useAuth();
@@ -44,7 +53,6 @@ export default function HomePage() {
   // El local (expand) solo llega con sesión iniciada: así lo marcan las reglas de PocketBase.
   useEffect(() => {
     let cancelled = false;
-
     pb.collection("events")
       .getFullList({
         filter: pb.filter("date >= {:today}", { today: `${todayISO()} 00:00:00` }),
@@ -56,62 +64,68 @@ export default function HomePage() {
         console.error("Error fetching events:", err);
         if (!cancelled) {
           toast({
-            title: "❌ No se pudieron cargar los eventos",
+            title: "No se pudieron cargar los eventos",
             description: "Comprueba que el backend (PocketBase) está arrancado.",
             className: "error-toast",
           });
         }
       })
       .finally(() => !cancelled && setLoading(false));
-
     return () => {
       cancelled = true;
     };
   }, [isAuthenticated, toast]);
 
-  const filteredEvents = useMemo(() => {
-    const q = normalize(searchLocation.trim());
-
+  const filtered = useMemo(() => {
+    const q = normalize(search.trim());
+    const range = dateRange(when, customDate);
     return events.filter((e) => {
-      if (searchDate && String(e.date).slice(0, 10) !== searchDate) return false;
-      if (selectedFilter !== "Todos" && e.category !== selectedFilter) return false;
+      const day = String(e.date).slice(0, 10);
+      if (range && (day < range[0] || day > range[1])) return false;
+      if (category && e.category !== category) return false;
       if (q) {
-        const venue = e.expand?.venue;
-        const haystack = normalize(`${e.title} ${venue?.name || ""} ${venue?.address || ""}`);
-        if (!haystack.includes(q)) return false;
+        const v = e.expand?.venue;
+        if (!normalize(`${e.title} ${v?.name || ""} ${v?.address || ""}`).includes(q)) return false;
       }
       return true;
     });
-  }, [events, searchDate, searchLocation, selectedFilter]);
+  }, [events, search, when, customDate, category]);
 
-  const hasFilters = searchLocation || searchDate || selectedFilter !== "Todos";
-
+  const hasFilters = search || when !== "all" || category;
   const clearFilters = () => {
-    setSearchLocation("");
-    setSearchDate("");
-    setSelectedFilter("Todos");
+    setSearch("");
+    setWhen("all");
+    setCustomDate("");
+    setCategory(null);
   };
 
-  const handleLocationSearch = () => {
+  const pickDate = (value) => {
+    setCustomDate(value);
+    setWhen(value ? "custom" : "all");
+  };
+
+  const openDatePicker = () => {
+    const input = dateInputRef.current;
+    if (!input) return;
+    if (typeof input.showPicker === "function") input.showPicker();
+    else input.focus();
+  };
+
+  const handleNearMe = () => {
     if (!navigator.geolocation) {
       toast({ title: "Tu navegador no permite la geolocalización", className: "info-toast" });
       return;
     }
-
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       async ({ coords }) => {
         try {
           const city = await cityFromCoords(coords.latitude, coords.longitude);
           if (!city) throw new Error("no city");
-          setSearchLocation(city);
-          toast({ title: `📍 Mostrando planes en ${city}`, className: "success-toast" });
+          setSearch(city);
+          toast({ title: `Mostrando planes en ${city}`, className: "success-toast" });
         } catch {
-          toast({
-            title: "No se pudo saber tu ciudad",
-            description: "Escríbela en el buscador.",
-            className: "info-toast",
-          });
+          toast({ title: "No se pudo saber tu ciudad", description: "Escríbela en el buscador.", className: "info-toast" });
         } finally {
           setLocating(false);
         }
@@ -129,228 +143,225 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-transparent">
-      {/* HERO */}
-      <section className="hero-gradient py-16 md:py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center mb-10"
-          >
-            <h1 className="text-4xl md:text-6xl font-bold text-slate-900 mb-6">
-              Descubre <span className="gradient-text">el mejor plan</span> cerca de ti
-            </h1>
-            <p className="text-lg md:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
-              {isAuthenticated
-                ? "Tardeo, directos, DJ y fiestas en los bares y locales de tu ciudad."
-                : "Explora los planes como invitado. Inicia sesión para ver dónde y cuándo."}
-            </p>
-          </motion.div>
+    <>
+      {/* ---------- HERO ---------- */}
+      <section className="page pt-4 sm:pt-6">
+        <div className="relative overflow-hidden rounded-[28px] bg-ink text-white shadow-lift">
+          <img src={HERO_IMAGE} alt="" className="absolute inset-0 h-full w-full object-cover opacity-45" fetchpriority="high" />
+          <div className="absolute inset-0 bg-gradient-to-r from-ink via-ink/85 to-ink/30" />
+          <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-accent/40 blur-3xl" />
 
-          {/* FILTROS */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className="floating-card max-w-4xl mx-auto !p-5 md:!p-8"
-          >
-            <div className={`grid grid-cols-1 gap-4 items-center ${isAuthenticated ? "md:grid-cols-2" : ""}`}>
-              {isAuthenticated && (
-                <div className="search-input-container">
-                  <MapPin className="h-5 w-5 text-slate-500 ml-3 flex-shrink-0" />
+          <div className="relative px-6 py-14 sm:px-12 sm:py-20 lg:py-24">
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white/90 ring-1 ring-white/15 backdrop-blur">
+                <Sparkles className="h-3.5 w-3.5 text-accent" />
+                Tardeo · Directos · DJ · Noche
+              </span>
+              <h1 className="mt-5 max-w-2xl text-4xl font-extrabold leading-[1.05] sm:text-6xl">
+                Tu plan de hoy, <span className="text-accent">a un toque.</span>
+              </h1>
+              <p className="mt-5 max-w-lg text-base text-white/70 sm:text-lg">
+                Descubre qué se cuece en los bares y locales de tu ciudad y sal con el plan hecho.
+              </p>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="mt-8 sm:mt-10"
+            >
+              {isAuthenticated ? (
+                <div className="flex max-w-xl items-center gap-2 rounded-2xl bg-white p-2 text-ink shadow-lift">
+                  <MapPin className="ml-2 h-5 w-5 shrink-0 text-accent" />
                   <input
                     type="text"
-                    placeholder="Ciudad, local o evento..."
-                    value={searchLocation}
-                    onChange={(e) => setSearchLocation(e.target.value)}
-                    className="search-input"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Ciudad, local o evento"
                     aria-label="Buscar por ciudad, local o evento"
+                    className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-muted sm:text-base"
                   />
-                  <Button
-                    onClick={handleLocationSearch}
-                    size="sm"
-                    variant="ghost"
-                    className="mr-1 flex-shrink-0"
-                    disabled={locating}
-                    title="Usar mi ubicación"
-                  >
-                    <LocateFixed className="h-4 w-4 md:mr-1.5" />
-                    <span className="hidden md:inline">{locating ? "Buscando..." : "Cerca de mí"}</span>
-                  </Button>
+                  {search && (
+                    <button onClick={() => setSearch("")} className="rounded-full p-1.5 text-muted hover:bg-canvas" aria-label="Borrar búsqueda">
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                  <button onClick={handleNearMe} disabled={locating} className="btn-dark shrink-0 !px-4" title="Usar mi ubicación">
+                    {locating ? <Loader2 className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}
+                    <span className="hidden sm:inline">Cerca de mí</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-3">
+                  <Link to="/auth" className="btn-primary btn-lg">
+                    Crear cuenta gratis
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                  <a href="#planes" className="btn btn-lg bg-white/10 text-white ring-1 ring-white/20 backdrop-blur hover:bg-white/15">
+                    Ver planes
+                  </a>
                 </div>
               )}
 
-              <div className="calendar-input-container">
-                <Calendar className="calendar-icon" />
-                <input
-                  type="date"
-                  value={searchDate}
-                  min={todayISO()}
-                  onChange={(e) => setSearchDate(e.target.value)}
-                  className="calendar-input"
-                  aria-label="Filtrar por día"
-                />
-              </div>
-            </div>
-
-            <div className="search-filters">
-              {FILTERS.map((filter) => (
-                <button
-                  key={filter.id}
-                  type="button"
-                  onClick={() => setSelectedFilter(filter.id)}
-                  className={`filter-chip ${selectedFilter === filter.id ? "active" : ""}`}
-                  aria-pressed={selectedFilter === filter.id}
-                >
-                  <span className="mr-2">{filter.icon}</span>
-                  {filter.id}
-                </button>
-              ))}
-              {hasFilters && (
-                <button type="button" onClick={clearFilters} className="filter-chip !bg-transparent !text-slate-500 hover:!text-slate-800">
-                  <X className="h-4 w-4 inline mr-1" />
-                  Limpiar filtros
-                </button>
+              {!loading && events.length > 0 && (
+                <p className="mt-5 inline-flex items-center gap-2 text-sm text-white/60">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+                  </span>
+                  {events.length} {events.length === 1 ? "plan próximo" : "planes próximos"} publicados
+                </p>
               )}
-            </div>
-          </motion.div>
-
-          {!isAuthenticated && (
-            <div className="max-w-4xl mx-auto mt-6 text-center">
-              <Link to="/auth" className="btn-primary inline-block">
-                Acceder para ver detalles
-              </Link>
-            </div>
-          )}
+            </motion.div>
+          </div>
         </div>
       </section>
 
-      {/* LISTADO */}
-      <section className="py-14 bg-transparent">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold text-slate-900 mb-2">Próximos planes</h2>
-            <p className="text-slate-500">
-              {loading
-                ? "Cargando eventos..."
-                : `${filteredEvents.length} ${filteredEvents.length === 1 ? "evento encontrado" : "eventos encontrados"}`}
+      {/* ---------- FILTROS ---------- */}
+      <section id="planes" className="page mt-10 scroll-mt-20 space-y-3">
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-none sm:mx-0 sm:flex-wrap sm:px-0">
+          {WHEN.map((w) => (
+            <button
+              key={w.id}
+              type="button"
+              onClick={() => { setWhen(w.id); setCustomDate(""); }}
+              className={`chip ${when === w.id ? "chip-active" : ""}`}
+              aria-pressed={when === w.id}
+            >
+              {w.label}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={openDatePicker}
+            className={`chip relative ${when === "custom" ? "chip-active" : ""}`}
+            aria-pressed={when === "custom"}
+          >
+            <CalendarDays className="h-4 w-4" />
+            {when === "custom" && customDate ? formatDate(customDate, { day: "numeric", month: "short" }) : "Elegir fecha"}
+            <input
+              ref={dateInputRef}
+              type="date"
+              min={todayISO()}
+              value={customDate}
+              onChange={(e) => pickDate(e.target.value)}
+              className="pointer-events-none absolute inset-0 opacity-0"
+              tabIndex={-1}
+              aria-label="Elegir fecha"
+            />
+          </button>
+        </div>
+
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-none sm:mx-0 sm:flex-wrap sm:px-0">
+          {EVENT_CATEGORIES.map(({ id, Icon }) => {
+            const active = category === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setCategory(active ? null : id)}
+                className={`chip ${active ? "!border-accent !bg-accent-soft !text-accent" : ""}`}
+                aria-pressed={active}
+              >
+                <Icon className={`h-4 w-4 ${active ? "text-accent" : "text-muted"}`} />
+                {id}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ---------- LISTADO ---------- */}
+      <section className="page mt-10">
+        <div className="mb-6 flex items-end justify-between gap-4">
+          <div>
+            <h2 className="section-title">Próximos planes</h2>
+            <p className="mt-1 text-sm text-muted">
+              {loading ? "Buscando planes..." : `${filtered.length} ${filtered.length === 1 ? "evento" : "eventos"}`}
             </p>
           </div>
-
-          {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="event-card animate-pulse">
-                  <div className="h-48 bg-slate-200 rounded-xl mb-4" />
-                  <div className="h-5 bg-slate-200 rounded w-2/3" />
-                </div>
-              ))}
-            </div>
-          ) : filteredEvents.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {filteredEvents.map((event, index) => {
-                const venueName = event.expand?.venue?.name;
-                const timeLabel = formatTimeRange(event.start_time, event.end_time);
-
-                return (
-                  <motion.div
-                    key={event.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: Math.min(index, 8) * 0.05 }}
-                  >
-                    <Link to={`/evento/${event.id}`} className="event-card group block h-full">
-                      <div className="overflow-hidden rounded-xl mb-4">
-                        <img
-                          className="event-image !mb-0 group-hover:scale-105 transition-transform duration-300"
-                          alt={`Imagen del evento: ${event.title}`}
-                          src={coverUrl(event)}
-                          loading={index < 3 ? "eager" : "lazy"}
-                          decoding="async"
-                        />
-                      </div>
-
-                      <div className="space-y-3">
-                        <h3 className="text-xl font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
-                          {event.title}
-                        </h3>
-
-                        {/* Invitado: solo título + foto */}
-                        {isAuthenticated && (
-                          <>
-                            <div className="flex flex-wrap gap-2">
-                              {venueName && <span className="location-badge">{venueName}</span>}
-                              <span className="date-badge">{formatDate(event.date) || "Sin fecha"}</span>
-                              {timeLabel && (
-                                <span className="date-badge inline-flex items-center">
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  {timeLabel}
-                                </span>
-                              )}
-                              {event.category && <span className="stats-badge">{event.category}</span>}
-                            </div>
-
-                            {event.description && (
-                              <p className="text-slate-600 line-clamp-2 text-sm">{event.description}</p>
-                            )}
-
-                            <span className="stats-badge inline-flex items-center w-max">
-                              <Eye className="h-3 w-3 mr-1.5" />
-                              {event.views || 0} vistazos
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </Link>
-                  </motion.div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <p className="text-slate-500 mb-4">
-                {events.length === 0
-                  ? "Todavía no hay eventos próximos publicados."
-                  : "No hay eventos que coincidan con tu búsqueda."}
-              </p>
-              {hasFilters && (
-                <Button variant="outline" onClick={clearFilters}>
-                  Limpiar filtros
-                </Button>
-              )}
-            </div>
+          {hasFilters && (
+            <button onClick={clearFilters} className="btn-ghost btn-sm text-muted">
+              <X className="h-3.5 w-3.5" />
+              Limpiar filtros
+            </button>
           )}
         </div>
-      </section>
 
-      {/* CTA Comerciante */}
-      <section className="py-20 hero-gradient">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="bg-white rounded-2xl p-8 shadow-lg">
-            <h2 className="text-3xl font-bold text-slate-900 mb-4">¿Tienes un bar o local?</h2>
-            <p className="text-slate-600 mb-8 max-w-xl mx-auto">
-              Publica tus eventos y haz que tu local sea el plan del día.
-            </p>
-
-            {isMerchant ? (
-              <Link to="/comerciante" className="btn-primary inline-flex items-center">
-                <Users className="h-5 w-5 mr-2" />
-                Ir a mi panel
-              </Link>
-            ) : !isAuthenticated ? (
-              <Link to="/auth" className="btn-primary inline-flex items-center">
-                <Users className="h-5 w-5 mr-2" />
-                Acceder como comerciante
-              </Link>
-            ) : (
-              <p className="text-slate-500 text-sm">
-                Tu cuenta es de cliente. Para publicar eventos, crea una cuenta de comerciante.
-              </p>
+        {loading ? (
+          <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+            {[0, 1, 2].map((i) => <EventCardSkeleton key={i} />)}
+          </div>
+        ) : filtered.length > 0 ? (
+          <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((event, index) => (
+              <motion.div
+                key={event.id}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, delay: Math.min(index, 6) * 0.05 }}
+              >
+                <EventCard event={event} limited={!isAuthenticated} eager={index < 3} />
+              </motion.div>
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            icon={SearchX}
+            title={events.length === 0 ? "Aún no hay planes publicados" : "Nada por aquí"}
+            text={events.length === 0 ? "Vuelve pronto: los locales publican nuevos eventos cada semana." : "Prueba con otro día, otra categoría u otra ciudad."}
+          >
+            {hasFilters && (
+              <button onClick={clearFilters} className="btn-outline">Limpiar filtros</button>
             )}
+          </EmptyState>
+        )}
+      </section>
+
+      {/* ---------- CTA COMERCIANTES ---------- */}
+      <section className="page mt-20">
+        <div className="glow-bg grid gap-8 overflow-hidden rounded-[28px] p-8 text-white sm:p-12 lg:grid-cols-[1.2fr_1fr] lg:items-center">
+          <div>
+            <p className="eyebrow">Para bares y locales</p>
+            <h2 className="mt-3 text-3xl font-bold sm:text-4xl">Haz que tu local sea el plan del día.</h2>
+            <p className="mt-3 max-w-md text-white/70">
+              Publica tus eventos en un minuto y llega a la gente que busca justo lo que ofreces.
+            </p>
+            <div className="mt-7">
+              {isMerchant ? (
+                <Link to="/comerciante" className="btn-primary btn-lg">
+                  Ir a mi panel <ArrowRight className="h-4 w-4" />
+                </Link>
+              ) : !isAuthenticated ? (
+                <Link to="/auth" className="btn-primary btn-lg">
+                  Registrar mi local <ArrowRight className="h-4 w-4" />
+                </Link>
+              ) : (
+                <p className="text-sm text-white/60">Tu cuenta es de cliente. Para publicar, crea una cuenta de comerciante.</p>
+              )}
+            </div>
           </div>
+
+          <ul className="space-y-3">
+            {[
+              { Icon: CalendarPlus, title: "Publica en segundos", text: "Tipo de plan, fecha, horario y una foto." },
+              { Icon: Megaphone, title: "Promociona tu local", text: "Perfil propio con todos tus eventos." },
+              { Icon: TrendingUp, title: "Mide el interés", text: "Consulta cuántas personas ven tus planes." },
+            ].map(({ Icon, title, text }) => (
+              <li key={title} className="flex gap-4 rounded-2xl bg-white/5 p-4 ring-1 ring-white/10 backdrop-blur">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/15">
+                  <Icon className="h-5 w-5 text-accent" />
+                </span>
+                <div>
+                  <p className="font-semibold">{title}</p>
+                  <p className="text-sm text-white/60">{text}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
-    </div>
+    </>
   );
 }

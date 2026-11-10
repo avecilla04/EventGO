@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Plus, Eye, Clock, MapPin } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Plus, Eye, Clock, MapPin, Pencil, Trash2, ChevronDown, CalendarPlus } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import CreateEventForm from '@/components/merchant/CreateEventForm';
+import EmptyState from '@/components/EmptyState';
 import pb from '@/lib/pocketbase';
-import { coverUrl, errorMessage, formatDate, formatTimeRange, todayISO } from '@/lib/events';
+import { categoryIcon, coverUrl, dateParts, errorMessage, formatTimeRange, todayISO } from '@/lib/events';
 
-const EventsTab = ({ events, setEvents, venues }) => {
+const EventsTab = ({ events, setEvents, venues, setActiveTab }) => {
   // null = formulario cerrado, 'new' = crear, objeto = editar ese evento
   const [editing, setEditing] = useState(null);
   const [showPast, setShowPast] = useState(false);
@@ -33,47 +33,56 @@ const EventsTab = ({ events, setEvents, venues }) => {
       await pb.collection('events').delete(event.id);
       setEvents((prev) => prev.filter((e) => e.id !== event.id));
       if (editing?.id === event.id) setEditing(null);
-      toast({ title: '🗑️ Evento borrado', className: 'info-toast' });
+      toast({ title: 'Evento borrado', className: 'info-toast' });
     } catch (err) {
-      toast({ title: '❌ No se pudo borrar el evento', description: errorMessage(err), className: 'error-toast' });
+      toast({ title: 'No se pudo borrar el evento', description: errorMessage(err), className: 'error-toast' });
     }
   };
 
   const renderCard = (event) => {
+    const parts = dateParts(event.date);
     const timeLabel = formatTimeRange(event.start_time, event.end_time);
+    const CatIcon = categoryIcon(event.category);
     return (
-      <div key={event.id} className="event-card flex flex-col">
-        <img src={coverUrl(event)} alt="" className="event-image" loading="lazy" decoding="async" />
-        <Link to={`/evento/${event.id}`} className="font-bold text-slate-800 hover:text-blue-600">
-          {event.title}
-        </Link>
-        <div className="flex flex-wrap gap-2 mt-2">
-          <span className="date-badge">{formatDate(event.date) || 'Sin fecha'}</span>
-          {timeLabel && (
-            <span className="date-badge inline-flex items-center">
-              <Clock className="h-3 w-3 mr-1" />
-              {timeLabel}
-            </span>
+      <div key={event.id} className="group overflow-hidden rounded-2xl border border-line bg-white shadow-soft transition hover:shadow-lift">
+        <div className="relative aspect-[16/9] bg-line">
+          <img src={coverUrl(event)} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
+          {parts && (
+            <div className="absolute left-3 top-3 min-w-[48px] rounded-xl bg-white/95 px-2 py-1 text-center shadow-soft">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-accent">{parts.month}</p>
+              <p className="font-display text-lg font-bold leading-none">{parts.day}</p>
+            </div>
           )}
-          {event.category && <span className="stats-badge">{event.category}</span>}
-          <span className="stats-badge inline-flex items-center">
-            <Eye className="h-3 w-3 mr-1" />
+          <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-ink/70 px-2.5 py-1 text-xs font-medium text-white backdrop-blur">
+            <Eye className="h-3 w-3" />
             {event.views || 0}
           </span>
         </div>
-        {event.expand?.venue && (
-          <p className="text-sm text-slate-500 mt-2 flex items-center">
-            <MapPin className="h-3 w-3 mr-1" />
-            {event.expand.venue.name}
-          </p>
-        )}
-        <div className="pt-3 mt-auto flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setEditing(event)}>
-            Editar
-          </Button>
-          <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700" onClick={() => handleDelete(event)}>
-            Borrar
-          </Button>
+        <div className="p-4">
+          <Link to={`/evento/${event.id}`} className="line-clamp-1 font-display text-lg font-semibold hover:text-accent">
+            {event.title}
+          </Link>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {timeLabel && (
+              <span className="tag"><Clock className="h-3 w-3" />{timeLabel}</span>
+            )}
+            {event.category && (
+              <span className="tag-accent">{CatIcon && <CatIcon className="h-3 w-3" />}{event.category}</span>
+            )}
+            {event.expand?.venue && (
+              <span className="tag"><MapPin className="h-3 w-3" />{event.expand.venue.name}</span>
+            )}
+          </div>
+          <div className="mt-4 flex gap-2">
+            <button className="btn-outline btn-sm" onClick={() => setEditing(event)}>
+              <Pencil className="h-3.5 w-3.5" />
+              Editar
+            </button>
+            <button className="btn-ghost btn-sm text-red-600 hover:bg-red-50" onClick={() => handleDelete(event)}>
+              <Trash2 className="h-3.5 w-3.5" />
+              Borrar
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -81,13 +90,13 @@ const EventsTab = ({ events, setEvents, venues }) => {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-      <div className="flex justify-between items-center gap-4">
-        <h2 className="text-2xl font-bold text-slate-800">Mis Eventos</h2>
-        {!editing && (
-          <Button onClick={() => setEditing('new')} className="btn-primary" disabled={venues.length === 0}>
-            <Plus className="h-4 w-4 mr-2" />
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="section-title">Mis Eventos</h2>
+        {!editing && venues.length > 0 && (
+          <button onClick={() => setEditing('new')} className="btn-primary">
+            <Plus className="h-4 w-4" />
             Crear Evento
-          </Button>
+          </button>
         )}
       </div>
 
@@ -101,23 +110,36 @@ const EventsTab = ({ events, setEvents, venues }) => {
         />
       )}
 
-      {venues.length === 0 && !editing && (
-        <p className="text-slate-500">Registra primero un local en la pestaña Mis Locales para poder publicar eventos.</p>
-      )}
-
-      {upcoming.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{upcoming.map(renderCard)}</div>
+      {venues.length === 0 ? (
+        <EmptyState icon={MapPin} title="Primero, tu local" text="Registra un local para poder publicar eventos en él.">
+          <button className="btn-dark" onClick={() => setActiveTab?.('venues')}>Registrar local</button>
+        </EmptyState>
+      ) : upcoming.length > 0 ? (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">{upcoming.map(renderCard)}</div>
       ) : (
-        venues.length > 0 && <p className="text-slate-500 text-center py-6">No tienes eventos próximos.</p>
+        !editing && (
+          <EmptyState icon={CalendarPlus} title="No tienes eventos próximos" text="Publica tu próximo plan: tarda menos de un minuto.">
+            <button className="btn-primary" onClick={() => setEditing('new')}>
+              <Plus className="h-4 w-4" />
+              Crear evento
+            </button>
+          </EmptyState>
+        )
       )}
 
       {past.length > 0 && (
-        <div className="pt-4">
-          <button type="button" className="text-slate-600 hover:text-slate-900 font-medium" onClick={() => setShowPast((s) => !s)}>
-            {showPast ? '▾' : '▸'} Eventos pasados ({past.length})
+        <div className="border-t border-line pt-6">
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-ink"
+            onClick={() => setShowPast((s) => !s)}
+            aria-expanded={showPast}
+          >
+            <ChevronDown className={`h-4 w-4 transition-transform ${showPast ? '' : '-rotate-90'}`} />
+            Eventos pasados ({past.length})
           </button>
           {showPast && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4 opacity-80">{past.map(renderCard)}</div>
+            <div className="mt-5 grid grid-cols-1 gap-5 opacity-75 sm:grid-cols-2 lg:grid-cols-3">{past.map(renderCard)}</div>
           )}
         </div>
       )}

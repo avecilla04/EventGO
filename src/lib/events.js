@@ -1,14 +1,17 @@
+import { PartyPopper, Martini, Music, Palette, Sunset, Moon } from "lucide-react";
 import pb from "@/lib/pocketbase";
 
-// Deben coincidir exactamente con los valores del campo `category` en PocketBase.
+// `id` debe coincidir exactamente con los valores del campo `category` en PocketBase.
 export const EVENT_CATEGORIES = [
-  { id: "Fiesta", icon: "🎉" },
-  { id: "Tardeo Fest", icon: "🍹" },
-  { id: "Música en Directo", icon: "🎵" },
-  { id: "Arte", icon: "🎨" },
-  { id: "Tarde", icon: "🌇" },
-  { id: "Noche", icon: "🌙" },
+  { id: "Fiesta", Icon: PartyPopper },
+  { id: "Tardeo Fest", Icon: Martini },
+  { id: "Música en Directo", Icon: Music },
+  { id: "Arte", Icon: Palette },
+  { id: "Tarde", Icon: Sunset },
+  { id: "Noche", Icon: Moon },
 ];
+
+export const categoryIcon = (id) => EVENT_CATEGORIES.find((c) => c.id === id)?.Icon || null;
 
 export const MAX_COVER_BYTES = 5 * 1024 * 1024;
 
@@ -18,11 +21,50 @@ export const FALLBACK_COVER =
 /** "2026-12-20 00:00:00.000Z" -> "2026-12-20" (formato de <input type="date">). */
 export const toDateInput = (value) => (value ? String(value).slice(0, 10) : "");
 
+const pad = (n) => String(n).padStart(2, "0");
+const isoOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+
 /** Fecha de hoy en hora local, como "YYYY-MM-DD". */
-export const todayISO = () => {
-  const d = new Date();
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+export const todayISO = () => isoOf(new Date());
+
+/**
+ * Rango [desde, hasta] (ambos "YYYY-MM-DD") para los filtros rápidos.
+ * "weekend" = de viernes a domingo (si ya es fin de semana, desde hoy).
+ */
+export const dateRange = (when, customDate) => {
+  const now = new Date();
+  switch (when) {
+    case "today":
+      return [isoOf(now), isoOf(now)];
+    case "tomorrow": {
+      const t = isoOf(addDays(now, 1));
+      return [t, t];
+    }
+    case "weekend": {
+      const dow = now.getDay(); // 0 domingo ... 6 sábado
+      const start = dow === 0 || dow >= 5 ? now : addDays(now, 5 - dow);
+      const end = dow === 0 ? now : addDays(now, 7 - dow);
+      return [isoOf(start), isoOf(end)];
+    }
+    case "custom":
+      return customDate ? [customDate, customDate] : null;
+    default:
+      return null;
+  }
+};
+
+/** Partes para la "etiqueta de calendario" de las tarjetas: { day: "20", month: "dic" }. */
+export const dateParts = (value) => {
+  const iso = toDateInput(value);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+  const [y, m, d] = iso.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  return {
+    day: String(d),
+    month: date.toLocaleDateString("es-ES", { month: "short" }).replace(".", ""),
+    weekday: date.toLocaleDateString("es-ES", { weekday: "short" }).replace(".", ""),
+  };
 };
 
 /**

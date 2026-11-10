@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { BarChart3, Calendar, MapPin, Settings } from 'lucide-react';
+import { LayoutDashboard, Calendar, Store, Settings } from 'lucide-react';
 
 import DashboardTab from '@/components/merchant/DashboardTab';
 import EventsTab from '@/components/merchant/EventsTab';
@@ -12,10 +12,10 @@ import pb from '@/lib/pocketbase';
 import useDocumentTitle from '@/lib/useDocumentTitle';
 
 const TABS = [
-  { id: 'dashboard', label: 'Panel Principal', icon: BarChart3 },
+  { id: 'dashboard', label: 'Resumen', icon: LayoutDashboard },
   { id: 'events', label: 'Mis Eventos', icon: Calendar },
-  { id: 'venues', label: 'Mis Locales', icon: MapPin },
-  { id: 'settings', label: 'Configuración', icon: Settings },
+  { id: 'venues', label: 'Mis Locales', icon: Store },
+  { id: 'settings', label: 'Perfil', icon: Settings },
 ];
 
 const MerchantDashboard = () => {
@@ -66,7 +66,7 @@ const MerchantDashboard = () => {
 
   const renderContent = () => {
     if (loading && activeTab !== 'settings') {
-      return <p className="text-slate-500">Cargando...</p>;
+      return <div className="h-40 animate-pulse rounded-2xl bg-line" />;
     }
     switch (activeTab) {
       case 'events':
@@ -81,41 +81,36 @@ const MerchantDashboard = () => {
   };
 
   return (
-    <div className="bg-slate-50 min-h-screen py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-slate-800 mb-2">Panel de Comerciante</h1>
-          <p className="text-slate-500">
-            {user.business_name ? `${user.business_name} · ` : ''}Gestiona tus eventos y llega a más personas
-          </p>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-xl p-2 mb-8 shadow-sm">
-          <div className="flex flex-wrap gap-2" role="tablist">
-            {TABS.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  role="tab"
-                  aria-selected={activeTab === tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center px-3 py-2 md:px-4 text-sm md:text-base rounded-lg transition-all font-medium ${
-                    activeTab === tab.id
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                  }`}
-                >
-                  <Icon className="h-4 w-4 mr-2" />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {renderContent()}
+    <div className="page pt-8 sm:pt-10">
+      <div className="flex flex-col gap-1">
+        <p className="eyebrow">{user.business_name || 'Panel de comerciante'}</p>
+        <h1 className="text-3xl font-extrabold sm:text-4xl">Hola, {(user.name || '').split(' ')[0] || 'de nuevo'}</h1>
+        <p className="text-muted">Gestiona tus locales y eventos y mira cómo funcionan.</p>
       </div>
+
+      <div className="-mx-4 mt-8 overflow-x-auto px-4 scrollbar-none sm:mx-0 sm:px-0">
+        <div className="inline-flex gap-1 rounded-full border border-line bg-white p-1 shadow-soft" role="tablist">
+          {TABS.map(({ id, label, icon: Icon }) => {
+            const active = activeTab === id;
+            return (
+              <button
+                key={id}
+                role="tab"
+                aria-selected={active}
+                onClick={() => setActiveTab(id)}
+                className={`inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition ${
+                  active ? 'bg-ink text-white' : 'text-muted hover:text-ink'
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="mt-8">{renderContent()}</div>
     </div>
   );
 };

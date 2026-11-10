@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation } f
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import HomePage from "@/pages/HomePage";
 
 // El resto de páginas se descargan solo cuando se visitan.
@@ -13,7 +14,9 @@ const AuthPage = lazy(() => import("@/pages/AuthPage"));
 const MerchantDashboard = lazy(() => import("@/pages/MerchantDashboard"));
 
 const PageLoader = () => (
-  <div className="min-h-[60vh] flex items-center justify-center text-slate-500">Cargando...</div>
+  <div className="flex min-h-[60vh] items-center justify-center">
+    <span className="h-8 w-8 animate-spin rounded-full border-2 border-line border-t-accent" aria-label="Cargando" />
+  </div>
 );
 
 const MerchantRoute = ({ children }) => {
@@ -34,10 +37,11 @@ const GuestOnlyRoute = ({ children }) => {
 };
 
 const NotFound = () => (
-  <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4">
-    <h1 className="text-3xl font-bold text-slate-800 mb-2">Página no encontrada</h1>
-    <p className="text-slate-500 mb-6">La dirección que buscas no existe.</p>
-    <Link to="/" className="btn-primary">Volver al inicio</Link>
+  <div className="page flex min-h-[60vh] flex-col items-center justify-center text-center">
+    <p className="font-display text-7xl font-extrabold text-accent">404</p>
+    <h1 className="mt-2 text-2xl font-bold">Página no encontrada</h1>
+    <p className="mt-2 text-muted">La dirección que buscas no existe.</p>
+    <Link to="/" className="btn-dark mt-6">Volver al inicio</Link>
   </div>
 );
 
@@ -53,6 +57,7 @@ function App() {
       <AuthProvider>
         <ScrollToTop />
         <Navbar />
+        <main className="min-h-[calc(100vh-4rem)]">
         <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path="/" element={<HomePage />} />
@@ -64,6 +69,8 @@ function App() {
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
+        </main>
+        <Footer />
         <Toaster />
       </AuthProvider>
     </Router>

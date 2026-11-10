@@ -1,31 +1,46 @@
-
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { User, Mail, Lock, Calendar, Eye, EyeOff, Briefcase, MapPin } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { User, Mail, Lock, Eye, EyeOff, Store, Compass, Sparkles, CalendarHeart, MapPinned, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { errorMessage } from '@/lib/events';
 import useDocumentTitle from '@/lib/useDocumentTitle';
 
 const MIN_PASSWORD = 8;
+const SIDE_IMAGE = 'https://images.unsplash.com/photo-1470337458703-46ad1756a187?auto=format&fit=crop&w=1200&q=70';
+
+const ACCOUNT_TYPES = [
+  { id: 'cliente', label: 'Busco planes', hint: 'Cliente', Icon: Compass },
+  { id: 'comerciante', label: 'Tengo un local', hint: 'Comerciante', Icon: Store },
+];
+
+const Field = ({ label, icon: Icon, children, hint }) => (
+  <div>
+    <label className="form-label">{label}</label>
+    <div className="relative">
+      <Icon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+      {children}
+    </div>
+    {hint && <p className="form-hint">{hint}</p>}
+  </div>
+);
 
 const AuthPage = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [userType, setUserType] = useState('cliente');
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    name: '',
-    businessName: '',
-    confirmPassword: ''
-  });
+  const [formData, setFormData] = useState({ email: '', password: '', name: '', businessName: '', confirmPassword: '' });
   const { toast } = useToast();
   const { signUp, signIn } = useAuth();
 
   useDocumentTitle(isLogin ? 'Iniciar sesión' : 'Crear cuenta');
+
+  const handleInputChange = (e) => setFormData((f) => ({ ...f, [e.target.name]: e.target.value }));
+
+  const switchMode = () => {
+    setIsLogin((v) => !v);
+    setFormData({ email: '', password: '', name: '', businessName: '', confirmPassword: '' });
+  };
 
   // Al tener sesión, la ruta /auth redirige sola (ver GuestOnlyRoute en App.jsx).
   const handleSubmit = async (e) => {
@@ -33,10 +48,7 @@ const AuthPage = () => {
     if (submitting) return;
 
     if (!isLogin && formData.password !== formData.confirmPassword) {
-      toast({
-        title: "❌ Las contraseñas no coinciden",
-        className: "error-toast",
-      });
+      toast({ title: 'Las contraseñas no coinciden', className: 'error-toast' });
       return;
     }
 
@@ -44,7 +56,7 @@ const AuthPage = () => {
       setSubmitting(true);
       if (isLogin) {
         await signIn(formData.email.trim(), formData.password);
-        toast({ title: "🎉 ¡Bienvenido de vuelta!", className: "success-toast" });
+        toast({ title: '¡Bienvenido de vuelta!', className: 'success-toast' });
       } else {
         await signUp({
           email: formData.email.trim(),
@@ -55,230 +67,145 @@ const AuthPage = () => {
           businessName: formData.businessName.trim(),
         });
         toast({
-          title: "🎉 ¡Cuenta creada!",
+          title: '¡Cuenta creada!',
           description: userType === 'comerciante'
-            ? "Registra tu local para empezar a publicar eventos."
-            : "Ya puedes descubrir planes cerca de ti.",
-          className: "success-toast",
+            ? 'Registra tu local para empezar a publicar eventos.'
+            : 'Ya puedes descubrir planes cerca de ti.',
+          className: 'success-toast',
         });
       }
     } catch (error) {
       toast({
-        title: isLogin ? "❌ No se pudo iniciar sesión" : "❌ No se pudo crear la cuenta",
-        description: isLogin && error?.status === 400
-          ? "Email o contraseña incorrectos."
-          : errorMessage(error),
-        className: "error-toast",
+        title: isLogin ? 'No se pudo iniciar sesión' : 'No se pudo crear la cuenta',
+        description: isLogin && error?.status === 400 ? 'Email o contraseña incorrectos.' : errorMessage(error),
+        className: 'error-toast',
       });
     } finally {
       setSubmitting(false);
     }
   };
 
-
-  const handleInputChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-  };
-
   return (
-    <>
-      <div className="min-h-screen flex items-center justify-center py-12 px-4 auth-container">
-        <div className="max-w-md w-full">
-          <motion.div 
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="auth-card"
-          >
-            <div className="text-center mb-8">
-              <div className="bg-blue-600 p-3 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                <User className="h-8 w-8 text-white" />
-              </div>
-              <h1 className="text-2xl font-bold text-slate-800 mb-2">
-                {isLogin ? 'Bienvenido de vuelta' : 'Únete a EventGo'}
-              </h1>
-              <p className="text-slate-500">
-                {isLogin 
-                  ? 'Inicia sesión para descubrir eventos únicos' 
-                  : 'Crea tu cuenta y comienza a explorar'
-                }
-              </p>
-            </div>
+    <div className="page py-6 sm:py-10">
+      <div className="grid overflow-hidden rounded-[28px] border border-line bg-white shadow-lift lg:grid-cols-2">
+        {/* Lado visual (solo escritorio) */}
+        <div className="relative hidden min-h-[640px] bg-ink lg:block">
+          <img src={SIDE_IMAGE} alt="" className="absolute inset-0 h-full w-full object-cover opacity-60" />
+          <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/60 to-ink/10" />
+          <div className="absolute inset-x-0 bottom-0 p-10 text-white">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium ring-1 ring-white/15 backdrop-blur">
+              <Sparkles className="h-3.5 w-3.5 text-accent" />
+              Gratis para siempre
+            </span>
+            <h2 className="mt-4 text-4xl font-extrabold leading-tight">
+              Sal de casa con el <span className="text-accent">plan hecho.</span>
+            </h2>
+            <ul className="mt-6 space-y-3 text-white/80">
+              <li className="flex items-center gap-3"><CalendarHeart className="h-5 w-5 text-accent" /> Directos, DJ, tardeo y mucho más</li>
+              <li className="flex items-center gap-3"><MapPinned className="h-5 w-5 text-accent" /> Los locales de tu ciudad en un solo sitio</li>
+              <li className="flex items-center gap-3"><Store className="h-5 w-5 text-accent" /> ¿Tienes un bar? Publica tus eventos</li>
+            </ul>
+          </div>
+        </div>
+
+        {/* Formulario */}
+        <div className="flex items-center px-6 py-10 sm:px-12">
+          <div className="mx-auto w-full max-w-sm">
+            <h1 className="text-3xl font-extrabold">{isLogin ? 'Hola de nuevo' : 'Crea tu cuenta'}</h1>
+            <p className="mt-2 text-muted">
+              {isLogin ? 'Inicia sesión para ver todos los planes.' : 'Tardas menos de un minuto.'}
+            </p>
 
             {!isLogin && (
-              <motion.div 
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                className="mb-6"
-              >
-                <label className="block text-sm font-medium text-slate-700 mb-3">Tipo de cuenta</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setUserType('cliente')}
-                    className={`p-3 rounded-lg border-2 transition-all text-center ${
-                      userType === 'cliente' 
-                        ? 'border-blue-600 bg-blue-50 text-blue-700' 
-                        : 'border-slate-300 text-slate-600 hover:border-blue-500 hover:bg-slate-50'
-                    }`}
-                  >
-                    <Calendar className="h-5 w-5 mx-auto mb-2" />
-                    <div className="text-sm font-semibold">Cliente</div>
-                    <div className="text-xs opacity-80">Descubrir eventos</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setUserType('comerciante')}
-                    className={`p-3 rounded-lg border-2 transition-all text-center ${
-                      userType === 'comerciante' 
-                        ? 'border-blue-600 bg-blue-50 text-blue-700' 
-                        : 'border-slate-300 text-slate-600 hover:border-blue-500 hover:bg-slate-50'
-                    }`}
-                  >
-                    <Briefcase className="h-5 w-5 mx-auto mb-2" />
-                    <div className="text-sm font-semibold">Comerciante</div>
-                    <div className="text-xs opacity-80">Organizar eventos</div>
-                  </button>
-                </div>
-              </motion.div>
+              <div className="mt-6 grid grid-cols-2 gap-2 rounded-2xl bg-canvas p-1.5" role="radiogroup" aria-label="Tipo de cuenta">
+                {ACCOUNT_TYPES.map(({ id, label, hint, Icon }) => {
+                  const active = userType === id;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => setUserType(id)}
+                      className={`flex flex-col items-center gap-1 rounded-xl px-3 py-3 text-center transition ${
+                        active ? 'bg-white text-ink shadow-soft ring-1 ring-line' : 'text-muted hover:text-ink'
+                      }`}
+                    >
+                      <Icon className={`h-5 w-5 ${active ? 'text-accent' : ''}`} />
+                      <span className="text-sm font-semibold">{label}</span>
+                      <span className="text-[11px] opacity-70">{hint}</span>
+                    </button>
+                  );
+                })}
+              </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               {!isLogin && (
-                <motion.div 
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                >
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    {userType === 'comerciante' ? 'Nombre del responsable' : 'Nombre completo'}
-                  </label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5" />
-                    <input
-                      type="text"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleInputChange}
-                      className="form-input pl-10"
-                      placeholder="Tu nombre"
-                      required
-                    />
-                  </div>
-                </motion.div>
+                <Field label={userType === 'comerciante' ? 'Nombre del responsable' : 'Tu nombre'} icon={User}>
+                  <input type="text" name="name" value={formData.name} onChange={handleInputChange}
+                    className="form-input pl-10" placeholder="Nombre" maxLength={100} autoComplete="name" required />
+                </Field>
               )}
 
               {!isLogin && userType === 'comerciante' && (
-                <motion.div 
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                >
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Nombre del negocio</label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5" />
-                    <input
-                      type="text"
-                      name="businessName"
-                      value={formData.businessName}
-                      onChange={handleInputChange}
-                      className="form-input pl-10"
-                      placeholder="Nombre de tu local o empresa"
-                      required
-                    />
-                  </div>
-                </motion.div>
+                <Field label="Nombre del local" icon={Store}>
+                  <input type="text" name="businessName" value={formData.businessName} onChange={handleInputChange}
+                    className="form-input pl-10" placeholder="Bar La Esquina" maxLength={100} autoComplete="organization" required />
+                </Field>
               )}
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Email</label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5" />
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className="form-input pl-10"
-                    placeholder="tu@email.com"
-                    required
-                  />
-                </div>
-              </div>
+              <Field label="Email" icon={Mail}>
+                <input type="email" name="email" value={formData.email} onChange={handleInputChange}
+                  className="form-input pl-10" placeholder="tu@email.com" autoComplete="email" required />
+              </Field>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Contraseña</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    name="password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    className="form-input pl-10 pr-10"
-                    placeholder="••••••••"
-                    autoComplete={isLogin ? 'current-password' : 'new-password'}
-                    minLength={isLogin ? undefined : MIN_PASSWORD}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-500 hover:text-slate-800"
-                  >
-                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                  </button>
-                </div>
-              </div>
-
-              {!isLogin && (
-                <motion.div 
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                >
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Confirmar contraseña</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      name="confirmPassword"
-                      value={formData.confirmPassword}
-                      onChange={handleInputChange}
-                      className="form-input pl-10"
-                      placeholder="••••••••"
-                      autoComplete="new-password"
-                      minLength={MIN_PASSWORD}
-                      required
-                    />
-                  </div>
-                  <p className="text-xs text-slate-500 mt-1.5">Mínimo {MIN_PASSWORD} caracteres.</p>
-                </motion.div>
-              )}
-
-              <Button type="submit" disabled={submitting} className="btn-primary w-full !py-3 !text-base">
-                {submitting ? 'Un momento...' : isLogin ? 'Iniciar Sesión' : 'Crear Cuenta'}
-              </Button>
-            </form>
-
-            <div className="mt-6 text-center">
-              <p className="text-slate-600">
-                {isLogin ? '¿No tienes cuenta?' : '¿Ya tienes cuenta?'}
+              <Field label="Contraseña" icon={Lock} hint={!isLogin ? `Mínimo ${MIN_PASSWORD} caracteres.` : undefined}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  className="form-input pl-10 pr-11"
+                  placeholder="••••••••"
+                  autoComplete={isLogin ? 'current-password' : 'new-password'}
+                  minLength={isLogin ? undefined : MIN_PASSWORD}
+                  required
+                />
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsLogin(!isLogin);
-                    setFormData({ email: '', password: '', name: '', businessName: '', confirmPassword: '' });
-                  }}
-                  className="ml-2 text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-muted hover:bg-canvas hover:text-ink"
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                 >
-                  {isLogin ? 'Crear cuenta' : 'Iniciar sesión'}
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
-              </p>
-            </div>
-          </motion.div>
+              </Field>
+
+              {!isLogin && (
+                <Field label="Repite la contraseña" icon={Lock}>
+                  <input type={showPassword ? 'text' : 'password'} name="confirmPassword" value={formData.confirmPassword}
+                    onChange={handleInputChange} className="form-input pl-10" placeholder="••••••••"
+                    autoComplete="new-password" minLength={MIN_PASSWORD} required />
+                </Field>
+              )}
+
+              <button type="submit" disabled={submitting} className="btn-primary btn-lg w-full">
+                {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                {submitting ? 'Un momento...' : isLogin ? 'Iniciar Sesión' : 'Crear Cuenta'}
+              </button>
+            </form>
+
+            <p className="mt-6 text-center text-sm text-muted">
+              {isLogin ? '¿No tienes cuenta?' : '¿Ya tienes cuenta?'}
+              <button type="button" onClick={switchMode} className="ml-1.5 font-semibold text-accent hover:underline">
+                {isLogin ? 'Crear cuenta' : 'Iniciar sesión'}
+              </button>
+            </p>
+          </div>
         </div>
       </div>
-    </>
+    </div>
   );
 };
 

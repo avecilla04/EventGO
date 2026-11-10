@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Plus, MapPin } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Plus, MapPin, Store, Pencil, Trash2, Globe, Instagram } from "lucide-react";
+import EmptyState from "@/components/EmptyState";
 import { useToast } from "@/components/ui/use-toast";
 import CreateVenueForm from "@/components/merchant/CreateVenueForm";
 import pb from "@/lib/pocketbase";
@@ -41,7 +41,7 @@ const VenuesTab = ({ venues, setVenues, events, setEvents }) => {
       await pb.collection("venues").delete(venue.id);
       setVenues((prev) => prev.filter((v) => v.id !== venue.id));
       if (editing?.id === venue.id) setEditing(null);
-      toast({ title: "🗑️ Local borrado", className: "info-toast" });
+      toast({ title: "Local borrado", className: "info-toast" });
     } catch (err) {
       toast({ title: "❌ No se pudo borrar el local", description: errorMessage(err), className: "error-toast" });
     }
@@ -49,13 +49,13 @@ const VenuesTab = ({ venues, setVenues, events, setEvents }) => {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <h2 className="text-2xl font-bold text-slate-800">Mis Locales</h2>
-        {!editing && (
-          <Button onClick={() => setEditing("new")} className="btn-primary w-full md:w-auto">
-            <Plus className="h-4 w-4 mr-2" />
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="section-title">Mis Locales</h2>
+        {!editing && venues.length > 0 && (
+          <button onClick={() => setEditing("new")} className="btn-primary">
+            <Plus className="h-4 w-4" />
             Registrar Local
-          </Button>
+          </button>
         )}
       </div>
 
@@ -69,45 +69,57 @@ const VenuesTab = ({ venues, setVenues, events, setEvents }) => {
       )}
 
       {venues.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           {venues.map((venue) => {
             const website = safeWebsite(venue.website);
             const instagram = instagramUrl(venue.instagram);
+            const count = events.filter((e) => e.venue === venue.id).length;
             return (
-              <div key={venue.id} className="merchant-panel">
-                <div className="flex items-start justify-between gap-4 mb-4">
-                  <div>
-                    <Link to={`/local/${venue.id}`} className="font-bold text-lg text-slate-800 hover:text-blue-600">
+              <div key={venue.id} className="panel flex flex-col">
+                <div className="flex items-start gap-4">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-ink font-display text-lg font-bold text-white">
+                    {venue.name.charAt(0).toUpperCase()}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <Link to={`/local/${venue.id}`} className="block truncate font-display text-lg font-semibold hover:text-accent">
                       {venue.name}
                     </Link>
-                    <p className="text-slate-500 flex items-center text-sm">
-                      <MapPin className="h-4 w-4 mr-1.5 flex-shrink-0" />
-                      {venue.address}
+                    <p className="flex items-center gap-1.5 text-sm text-muted">
+                      <MapPin className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{venue.address}</span>
                     </p>
                   </div>
-                  <div className="flex gap-2 flex-shrink-0">
-                    <Button variant="outline" size="sm" onClick={() => setEditing(venue)}>
-                      Editar
-                    </Button>
-                    <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700" onClick={() => handleDelete(venue)}>
-                      Borrar
-                    </Button>
-                  </div>
+                  <span className="tag shrink-0">{count} {count === 1 ? "evento" : "eventos"}</span>
                 </div>
 
-                {venue.description && <p className="text-slate-600 mb-4 text-sm line-clamp-3">{venue.description}</p>}
+                {venue.description && <p className="mt-4 line-clamp-3 text-sm text-ink/70">{venue.description}</p>}
 
-                <div className="flex space-x-4 text-sm">
-                  {website && (
-                    <a href={website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                      Sitio web
-                    </a>
-                  )}
-                  {instagram && (
-                    <a href={instagram.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                      @{instagram.handle}
-                    </a>
-                  )}
+                {(website || instagram) && (
+                  <div className="mt-4 flex flex-wrap gap-4 text-sm">
+                    {website && (
+                      <a href={website} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-muted hover:text-accent">
+                        <Globe className="h-4 w-4" />
+                        Web
+                      </a>
+                    )}
+                    {instagram && (
+                      <a href={instagram.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-muted hover:text-accent">
+                        <Instagram className="h-4 w-4" />
+                        @{instagram.handle}
+                      </a>
+                    )}
+                  </div>
+                )}
+
+                <div className="mt-5 flex gap-2 border-t border-line pt-4">
+                  <button className="btn-outline btn-sm" onClick={() => setEditing(venue)}>
+                    <Pencil className="h-3.5 w-3.5" />
+                    Editar
+                  </button>
+                  <button className="btn-ghost btn-sm text-red-600 hover:bg-red-50" onClick={() => handleDelete(venue)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Borrar
+                  </button>
                 </div>
               </div>
             );
@@ -115,15 +127,12 @@ const VenuesTab = ({ venues, setVenues, events, setEvents }) => {
         </div>
       ) : (
         !editing && (
-          <div className="text-center py-16 border-2 border-dashed border-slate-200 rounded-xl">
-            <MapPin className="h-16 w-16 mx-auto mb-4 text-slate-300" />
-            <h3 className="text-xl font-bold text-slate-700 mb-2">No tienes locales registrados</h3>
-            <p className="text-slate-500 mb-6">Registra tu local para poder asociarlo a tus eventos.</p>
-            <Button onClick={() => setEditing("new")} className="btn-primary">
-              <Plus className="h-4 w-4 mr-2" />
+          <EmptyState icon={Store} title="No tienes locales registrados" text="Registra tu local para poder asociarlo a tus eventos.">
+            <button onClick={() => setEditing("new")} className="btn-primary">
+              <Plus className="h-4 w-4" />
               Registrar Mi Primer Local
-            </Button>
-          </div>
+            </button>
+          </EmptyState>
         )
       )}
     </motion.div>
