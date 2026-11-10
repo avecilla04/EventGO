@@ -34,8 +34,17 @@ export function AuthProvider({ children }) {
       }
     };
 
-    // getSession valida y refresca el token guardado; si no sirve, no hay sesión.
-    supabase.auth.getSession().then(({ data }) => apply(data.session));
+    // getSession solo lee el navegador; getUser confirma con el servidor que el token es válido
+    // (usuario borrado, token falso o caducado). Si no lo es, se descarta la sesión local.
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) return apply(null);
+      const { error } = await supabase.auth.getUser();
+      if (error) {
+        await supabase.auth.signOut({ scope: "local" });
+        return apply(null);
+      }
+      return apply(data.session);
+    });
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") return;
