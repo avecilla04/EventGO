@@ -10,10 +10,11 @@ export default function Footer() {
           <Logo />
           <p className="text-sm text-muted">El mejor plan de tardeo y noche, cerca de ti.</p>
         </div>
-        <nav className="flex gap-6 text-sm text-muted">
+        <nav className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted">
           <Link to="/" className="hover:text-ink">Eventos</Link>
           <Link to="/locales" className="hover:text-ink">Locales</Link>
           <Link to="/comerciante" className="hover:text-ink">Para locales</Link>
+          <Link to="/privacidad" className="hover:text-ink">Privacidad</Link>
         </nav>
       </div>
       <div className="border-t border-line">

@@ -77,8 +77,8 @@ async function loadImage(src) {
 export async function drawPoster(venue) {
   const url = followUrl(venue.id);
   await Promise.all([
-    document.fonts.load('800 100px "Bricolage Grotesque"'),
-    document.fonts.load('600 40px "Inter"'),
+    document.fonts.load('800 100px "Bricolage Grotesque Variable"'),
+    document.fonts.load('600 40px "Inter Variable"'),
   ]).catch(() => {});
 
   const canvas = document.createElement("canvas");
@@ -102,7 +102,7 @@ export async function drawPoster(venue) {
   glow(0, H, 900, "rgba(124,92,255,0.30)");
 
   // Logo (marca + nombre, centrados como bloque)
-  ctx.font = '800 56px "Bricolage Grotesque", Inter, sans-serif';
+  ctx.font = '800 56px "Bricolage Grotesque Variable", "Inter Variable", sans-serif';
   const logoText = ctx.measureText("EventGo").width;
   const markSize = 76;
   const logoX = (W - (markSize + 22 + logoText)) / 2;
@@ -116,13 +116,13 @@ export async function drawPoster(venue) {
   ctx.textAlign = "center";
 
   // Titular
-  ctx.font = '800 108px "Bricolage Grotesque", Inter, sans-serif';
+  ctx.font = '800 108px "Bricolage Grotesque Variable", "Inter Variable", sans-serif';
   ctx.fillStyle = "#ffffff";
   ctx.fillText("¿Te gusta", W / 2, 360);
   ctx.fillStyle = ACCENT;
   ctx.fillText("este sitio?", W / 2, 470);
 
-  ctx.font = '500 40px Inter, sans-serif';
+  ctx.font = '500 40px "Inter Variable", sans-serif';
   ctx.fillStyle = "rgba(255,255,255,0.72)";
   ctx.fillText("Síguelo en EventGo y no te pierdas", W / 2, 560);
   ctx.fillText("sus próximos planes.", W / 2, 612);
@@ -160,22 +160,22 @@ export async function drawPoster(venue) {
   // Nombre del local: reduce la letra si no cabe en una línea (hasta 2 líneas)
   let size = 76;
   const maxW = W - 200;
-  ctx.font = `800 ${size}px "Bricolage Grotesque", Inter, sans-serif`;
+  ctx.font = `800 ${size}px "Bricolage Grotesque Variable", "Inter Variable", sans-serif`;
   while (size > 52 && ctx.measureText(venue.name).width > maxW) {
     size -= 4;
-    ctx.font = `800 ${size}px "Bricolage Grotesque", Inter, sans-serif`;
+    ctx.font = `800 ${size}px "Bricolage Grotesque Variable", "Inter Variable", sans-serif`;
   }
   ctx.fillStyle = "#ffffff";
   const nameY = cy + card + 40 + size;
   const endY = centeredText(ctx, venue.name, nameY, maxW, size * 1.08, 2);
   if (venue.address) {
-    ctx.font = '500 32px Inter, sans-serif';
+    ctx.font = '500 32px "Inter Variable", sans-serif';
     ctx.fillStyle = "rgba(255,255,255,0.6)";
     centeredText(ctx, venue.address, endY + 58, W - 240, 40, 1);
   }
 
   // Pasos
-  ctx.font = '600 32px Inter, sans-serif';
+  ctx.font = '600 32px "Inter Variable", sans-serif';
   ctx.fillStyle = ACCENT;
   ctx.fillText("Apunta con la cámara del móvil  ·  Gratis", W / 2, H - 64);
 

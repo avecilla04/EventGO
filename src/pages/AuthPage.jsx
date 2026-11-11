@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { LEGAL } from '@/lib/legal';
 import { User, Mail, Lock, Eye, EyeOff, Store, Compass, Sparkles, CalendarHeart, MapPinned, Loader2, ArrowLeft, MailCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
@@ -8,7 +9,7 @@ import { errorMessage } from '@/lib/events';
 import useDocumentTitle from '@/lib/useDocumentTitle';
 
 const MIN_PASSWORD = 8;
-const SIDE_IMAGE = 'https://images.unsplash.com/photo-1470337458703-46ad1756a187?auto=format&fit=crop&w=1200&q=70';
+const SIDE_IMAGE = '/img/auth.webp';
 
 const ACCOUNT_TYPES = [
   { id: 'cliente', label: 'Busco planes', hint: 'Cliente', Icon: Compass },
@@ -279,6 +280,15 @@ const AuthPage = () => {
                 {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
                 {submitting ? 'Un momento...' : isLogin ? 'Iniciar Sesión' : 'Crear Cuenta'}
               </button>
+              {!isLogin && (
+                <p className="text-center text-xs leading-relaxed text-muted">
+                  Al crear una cuenta confirmas que tienes {LEGAL.minimumAge} años o más y aceptas la{' '}
+                  <Link to="/privacidad" target="_blank" className="font-semibold text-ink underline-offset-2 hover:underline">
+                    política de privacidad
+                  </Link>
+                  .
+                </p>
+              )}
             </form>
 
             <p className="mt-6 text-center text-sm text-muted">

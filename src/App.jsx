@@ -13,6 +13,7 @@ const VenueDetailPage = lazy(() => import("@/pages/VenueDetailPage"));
 const AuthPage = lazy(() => import("@/pages/AuthPage"));
 const MerchantDashboard = lazy(() => import("@/pages/MerchantDashboard"));
 const ResetPasswordPage = lazy(() => import("@/pages/ResetPasswordPage"));
+const PrivacyPage = lazy(() => import("@/pages/PrivacyPage"));
 
 const PageLoader = () => (
   <div className="flex min-h-[60vh] items-center justify-center">
@@ -67,6 +68,7 @@ function App() {
             <Route path="/local/:id" element={<VenueDetailPage />} />
             <Route path="/auth" element={<GuestOnlyRoute><AuthPage /></GuestOnlyRoute>} />
             <Route path="/restablecer" element={<ResetPasswordPage />} />
+            <Route path="/privacidad" element={<PrivacyPage />} />
             <Route path="/comerciante" element={<MerchantRoute><MerchantDashboard /></MerchantRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>

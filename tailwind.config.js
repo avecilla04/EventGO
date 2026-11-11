@@ -11,8 +11,8 @@ export default {
 		},
 		extend: {
 			fontFamily: {
-				sans: ['Inter', 'system-ui', 'sans-serif'],
-				display: ['"Bricolage Grotesque"', 'Inter', 'system-ui', 'sans-serif'],
+				sans: ['"Inter Variable"', 'system-ui', 'sans-serif'],
+				display: ['"Bricolage Grotesque Variable"', '"Inter Variable"', 'system-ui', 'sans-serif'],
 			},
 			colors: {
 				// Paleta EventGo

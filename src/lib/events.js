@@ -16,7 +16,7 @@ export const categoryIcon = (id) => EVENT_CATEGORIES.find((c) => c.id === id)?.I
 export const MAX_COVER_BYTES = 5 * 1024 * 1024;
 
 export const FALLBACK_COVER =
-  "https://images.unsplash.com/photo-1665220509244-fe8459807991?auto=format&fit=crop&w=1200&q=70";
+  "/img/evento.webp";
 
 /** Valor para <input type="date">: "YYYY-MM-DD". */
 export const toDateInput = (value) => (value ? String(value).slice(0, 10) : "");

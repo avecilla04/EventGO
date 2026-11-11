@@ -17,7 +17,7 @@ import {
 import useDocumentTitle from "@/lib/useDocumentTitle";
 
 const HERO_IMAGE =
-  "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1800&q=70";
+  "/img/hero.webp";
 
 const WHEN = [
   { id: "all", label: "Cualquier día" },
