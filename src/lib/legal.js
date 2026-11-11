@@ -4,7 +4,7 @@
 export const LEGAL = {
   owner: "Antonio Avecilla Rodríguez",
   // Email exclusivo de EventGo para consultas de privacidad (visible en la web).
-  contactEmail: "PENDIENTE@eventgo",
+  contactEmail: "eventgoaplication@gmail.com",
   minimumAge: 18,
   dataRegion: "Unión Europea (Irlanda)",
   lastUpdated: "11 de noviembre de 2026",
