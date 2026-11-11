@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, MapPin, Globe, Instagram, Heart, CalendarX, Store, Navigation } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,6 +13,8 @@ import useDocumentTitle from "@/lib/useDocumentTitle";
 
 export default function VenueDetailPage() {
   const { id } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const fromQr = searchParams.get("seguir") === "1";
   const { user } = useAuth();
   const { toast } = useToast();
   const [venue, setVenue] = useState(null);
@@ -32,18 +34,38 @@ export default function VenueDetailPage() {
       supabase.from("venues").select("*").eq("id", id).maybeSingle(),
       supabase.from("events").select("*").eq("venue_id", id).gte("date", todayISO()).order("date").order("start_time"),
       supabase.from("venue_follows").select("venue_id").eq("venue_id", id).eq("user_id", user.id).maybeSingle(),
-    ]).then(([venueRes, eventsRes, followRes]) => {
+    ]).then(async ([venueRes, eventsRes, followRes]) => {
       if (cancelled) return;
       if (venueRes.error) console.error("Error loading venue detail:", venueRes.error);
-      setVenue(venueRes.data || null);
+      const v = venueRes.data || null;
+      setVenue(v);
       setEvents(eventsRes.data || []);
       setFollowing(!!followRes.data);
       setLoading(false);
+
+      // Llegada desde el QR del local (?seguir=1): se sigue automáticamente.
+      if (fromQr && v) {
+        setSearchParams({}, { replace: true });
+        if (v.user_id === user.id) {
+          toast({ title: "Tu QR funciona", description: "Así lo verán tus clientes al escanearlo.", className: "info-toast" });
+        } else if (followRes.data) {
+          toast({ title: `Ya sigues ${v.name}`, className: "info-toast" });
+        } else {
+          const { error } = await supabase.from("venue_follows").insert({ venue_id: v.id });
+          if (cancelled) return;
+          if (!error || error.code === "23505") {
+            setFollowing(true);
+            toast({ title: `¡Ahora sigues ${v.name}!`, description: "Verás aquí todos sus próximos planes.", className: "success-toast" });
+          }
+        }
+      }
     });
 
     return () => {
       cancelled = true;
     };
+    // fromQr solo se lee al cargar: después se quita de la URL.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, user]);
 
   const handleToggleFollow = async () => {
@@ -70,10 +92,18 @@ export default function VenueDetailPage() {
 
   if (!user) {
     return (
-      <LoginRequired
-        title="Inicia sesión para ver este local"
-        text="Consulta sus próximos eventos y síguelo para no perderte nada."
-      />
+      fromQr ? (
+        <LoginRequired
+          signup
+          title="Sigue este local en EventGo"
+          text="Crea tu cuenta gratis en un minuto: seguirás este local automáticamente y verás todos sus planes."
+        />
+      ) : (
+        <LoginRequired
+          title="Inicia sesión para ver este local"
+          text="Consulta sus próximos eventos y síguelo para no perderte nada."
+        />
+      )
     );
   }
 

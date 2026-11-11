@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Plus, MapPin, Store, Pencil, Trash2, Globe, Instagram } from "lucide-react";
+import { Plus, MapPin, Store, Pencil, Trash2, Globe, Instagram, QrCode, Heart } from "lucide-react";
+import QrPosterDialog from "@/components/merchant/QrPosterDialog";
 import EmptyState from "@/components/EmptyState";
 import { useToast } from "@/components/ui/use-toast";
 import CreateVenueForm from "@/components/merchant/CreateVenueForm";
@@ -9,10 +10,13 @@ import { supabase } from "@/lib/supabase";
 import { errorMessage } from "@/lib/events";
 import { instagramUrl, safeWebsite } from "@/lib/links";
 
-const VenuesTab = ({ venues, setVenues, events, setEvents }) => {
+const VenuesTab = ({ venues, setVenues, events, setEvents, stats }) => {
   // null = formulario cerrado, 'new' = crear, objeto = editar ese local
   const [editing, setEditing] = useState(null);
+  const [posterVenue, setPosterVenue] = useState(null);
   const { toast } = useToast();
+
+  const closePoster = useCallback(() => setPosterVenue(null), []);
 
   const handleSaved = (saved) => {
     setVenues((prev) =>
@@ -90,7 +94,15 @@ const VenuesTab = ({ venues, setVenues, events, setEvents }) => {
                       <span className="truncate">{venue.address}</span>
                     </p>
                   </div>
-                  <span className="tag shrink-0">{count} {count === 1 ? "evento" : "eventos"}</span>
+                  <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    <span className="tag">{count} {count === 1 ? "evento" : "eventos"}</span>
+                    {stats?.[venue.id] && (
+                      <span className="tag-accent">
+                        <Heart className="h-3 w-3" />
+                        {stats[venue.id].followers} {stats[venue.id].followers === 1 ? "seguidor" : "seguidores"}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {venue.description && <p className="mt-4 line-clamp-3 text-sm text-ink/70">{venue.description}</p>}
@@ -112,7 +124,11 @@ const VenuesTab = ({ venues, setVenues, events, setEvents }) => {
                   </div>
                 )}
 
-                <div className="mt-5 flex gap-2 border-t border-line pt-4">
+                <div className="mt-5 flex flex-wrap gap-2 border-t border-line pt-4">
+                  <button className="btn-dark btn-sm" onClick={() => setPosterVenue(venue)}>
+                    <QrCode className="h-3.5 w-3.5" />
+                    Cartel QR
+                  </button>
                   <button className="btn-outline btn-sm" onClick={() => setEditing(venue)}>
                     <Pencil className="h-3.5 w-3.5" />
                     Editar
@@ -136,6 +152,7 @@ const VenuesTab = ({ venues, setVenues, events, setEvents }) => {
           </EmptyState>
         )
       )}
+      {posterVenue && <QrPosterDialog venue={posterVenue} onClose={closePoster} />}
     </motion.div>
   );
 };

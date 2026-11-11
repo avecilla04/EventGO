@@ -8,8 +8,8 @@ The project aims to improve the way users discover leisure opportunities by usin
 
 - Discovery of events and leisure activities, with quick filters (today, tomorrow, this weekend), categories and search by city or "near me"
 - Event and venue information: date, schedule, location, directions and sharing
-- Venue profiles that users can follow
-- Merchant dashboard to register venues, publish events with cover images and track views
+- Venue profiles that users can follow, also by scanning a printable QR poster placed in the venue
+- Merchant dashboard to register venues, publish events with cover images and track views and followers
 - User-friendly, responsive interface
 
 ## Technologies
@@ -25,7 +25,8 @@ The project aims to improve the way users discover leisure opportunities by usin
 Requirements: Node.js 20.19 or later and a free [Supabase](https://supabase.com) project.
 
 1. In the Supabase dashboard, open **SQL Editor** and run [`supabase/schema.sql`](supabase/schema.sql).
-   It creates the tables, access rules, image storage and the view counter.
+   It creates the tables, access rules, image storage, the view counter and follower stats.
+   (Projects created before the QR feature only need [`supabase/002_venue_stats.sql`](supabase/002_venue_stats.sql).)
 2. In **Authentication > Sign In / Providers > Email**, disable **Confirm email** (optional, recommended for demos).
 3. Copy `.env.example` to `.env` and fill in the project URL and anon key (**Project Settings > API**).
 4. Run the app:

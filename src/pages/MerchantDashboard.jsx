@@ -25,6 +25,8 @@ const MerchantDashboard = () => {
   const [venues, setVenues] = useState([]);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  // { [venueId]: { followers, newFollowers } } · null si la función SQL aún no existe
+  const [stats, setStats] = useState(null);
 
   const tabParam = searchParams.get('tab');
   const activeTab = TABS.some((t) => t.id === tabParam) ? tabParam : 'dashboard';
@@ -41,7 +43,8 @@ const MerchantDashboard = () => {
     Promise.all([
       supabase.from('venues').select('*').eq('user_id', user.id).order('name'),
       supabase.from('events').select(EVENT_WITH_VENUE).eq('user_id', user.id).order('date', { ascending: false }),
-    ]).then(([v, e]) => {
+      supabase.rpc('my_venue_stats'),
+    ]).then(([v, e, st]) => {
       if (cancelled) return;
       if (v.error || e.error) {
         console.error('Error loading merchant data:', v.error || e.error);
@@ -49,6 +52,9 @@ const MerchantDashboard = () => {
       } else {
         setVenues(v.data);
         setEvents(e.data);
+      }
+      if (!st.error) {
+        setStats(Object.fromEntries(st.data.map((r) => [r.venue_id, { followers: r.followers, newFollowers: r.new_followers_7d }])));
       }
       setLoading(false);
     });
@@ -58,7 +64,7 @@ const MerchantDashboard = () => {
     };
   }, [user.id, toast]);
 
-  const shared = { venues, setVenues, events, setEvents, setActiveTab };
+  const shared = { venues, setVenues, events, setEvents, setActiveTab, stats };
 
   const renderContent = () => {
     if (loading && activeTab !== 'settings') {

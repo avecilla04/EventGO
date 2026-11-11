@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { User, Mail, Lock, Eye, EyeOff, Store, Compass, Sparkles, CalendarHeart, MapPinned, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,7 +26,9 @@ const Field = ({ label, icon: Icon, children, hint }) => (
 );
 
 const AuthPage = () => {
-  const [isLogin, setIsLogin] = useState(true);
+  const location = useLocation();
+  // Desde el QR de un local se abre directamente en "Crear cuenta".
+  const [isLogin, setIsLogin] = useState(location.state?.mode !== 'signup');
   const [userType, setUserType] = useState('cliente');
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);

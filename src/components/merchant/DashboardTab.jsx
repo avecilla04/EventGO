@@ -1,25 +1,30 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { CalendarClock, CalendarCheck, Eye, Store, Plus, ArrowRight, CalendarX } from 'lucide-react';
+import { CalendarClock, Heart, Eye, Store, Plus, ArrowRight, CalendarX, QrCode } from 'lucide-react';
 import { dateParts, todayISO } from '@/lib/events';
 import EmptyState from '@/components/EmptyState';
 
-const StatCard = ({ icon: Icon, label, value }) => (
+const StatCard = ({ icon: Icon, label, value, extra }) => (
   <div className="panel">
-    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-soft">
-      <Icon className="h-5 w-5 text-accent" />
-    </span>
+    <div className="flex items-start justify-between gap-2">
+      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-soft">
+        <Icon className="h-5 w-5 text-accent" />
+      </span>
+      {extra && <span className="tag-accent">{extra}</span>}
+    </div>
     <p className="mt-4 font-display text-3xl font-bold">{value}</p>
     <p className="text-sm text-muted">{label}</p>
   </div>
 );
 
-const DashboardTab = ({ events, venues, setActiveTab }) => {
+const DashboardTab = ({ events, venues, setActiveTab, stats }) => {
   const today = todayISO();
   const upcoming = events
     .filter((e) => String(e.date).slice(0, 10) >= today)
     .sort((a, b) => String(a.date).localeCompare(String(b.date)));
   const totalViews = events.reduce((sum, e) => sum + (e.views || 0), 0);
+  const followers = stats ? Object.values(stats).reduce((s, v) => s + v.followers, 0) : null;
+  const newFollowers = stats ? Object.values(stats).reduce((s, v) => s + v.newFollowers, 0) : 0;
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
@@ -37,9 +42,32 @@ const DashboardTab = ({ events, venues, setActiveTab }) => {
         </div>
       )}
 
+      {venues.length > 0 && followers === 0 && (
+        <div className="panel flex flex-col gap-4 border-accent/30 bg-accent-soft/40 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-4">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-ink">
+              <QrCode className="h-5 w-5 text-accent" />
+            </span>
+            <div>
+              <p className="font-semibold">Consigue tus primeros seguidores</p>
+              <p className="text-sm text-muted">Imprime el cartel QR de tu local: quien lo escanee te seguirá y verá tus planes.</p>
+            </div>
+          </div>
+          <button className="btn-dark shrink-0" onClick={() => setActiveTab('venues')}>
+            <QrCode className="h-4 w-4" />
+            Ver mi cartel QR
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard icon={CalendarClock} label="Eventos próximos" value={upcoming.length} />
-        <StatCard icon={CalendarCheck} label="Eventos publicados" value={events.length} />
+        <StatCard
+          icon={Heart}
+          label="Seguidores"
+          value={followers ?? '—'}
+          extra={newFollowers > 0 ? `+${newFollowers} esta semana` : null}
+        />
         <StatCard icon={Eye} label="Vistas totales" value={totalViews} />
         <StatCard icon={Store} label="Locales" value={venues.length} />
       </div>
