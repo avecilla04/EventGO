@@ -128,7 +128,10 @@ export default function VenueDetailPage() {
   const website = safeWebsite(venue.website);
   const instagram = instagramUrl(venue.instagram);
   const isOwner = venue.user_id === user.id;
-  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${venue.name} ${venue.address || ""}`)}`;
+  const mapsUrl =
+    venue.lat != null
+      ? `https://www.google.com/maps/search/?api=1&query=${venue.lat},${venue.lng}`
+      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${venue.name} ${venue.address || ""} ${venue.city || ""}`)}`;
 
   return (
     <div className="page pt-4 sm:pt-6">
@@ -150,7 +153,7 @@ export default function VenueDetailPage() {
               <h1 className="text-3xl font-extrabold sm:text-4xl">{venue.name}</h1>
               <p className="mt-1 flex items-center gap-1.5 text-white/70">
                 <MapPin className="h-4 w-4 shrink-0" />
-                <span className="truncate">{venue.address || "Sin dirección"}</span>
+                <span className="truncate">{[venue.address, venue.city].filter(Boolean).join(", ") || "Sin dirección"}</span>
               </p>
             </div>
           </div>

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  MapPin, LocateFixed, X, CalendarDays, Sparkles, ArrowRight, Megaphone, CalendarPlus, TrendingUp, SearchX, Loader2,
+  X, CalendarDays, Sparkles, ArrowRight, Megaphone, CalendarPlus, TrendingUp, SearchX, Search, Heart, Globe2,
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,6 +10,10 @@ import { supabase, GUEST_EVENT_COLUMNS, EVENT_WITH_VENUE } from "@/lib/supabase"
 import { EVENT_CATEGORIES, dateRange, todayISO, formatDate } from "@/lib/events";
 import EventCard, { EventCardSkeleton } from "@/components/EventCard";
 import EmptyState from "@/components/EmptyState";
+import LocationPicker from "@/components/LocationPicker";
+import {
+  cityFromCoords, distanceKm, getCurrentPosition, loadSavedLocation, normalizeText, saveLocation,
+} from "@/lib/geo";
 import useDocumentTitle from "@/lib/useDocumentTitle";
 
 const HERO_IMAGE =
@@ -22,17 +26,8 @@ const WHEN = [
   { id: "weekend", label: "Este finde" },
 ];
 
-const normalize = (text) =>
-  String(text || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-
-/** Coordenadas -> nombre de la ciudad (OpenStreetMap, gratuito y sin clave). */
-async function cityFromCoords(lat, lon) {
-  const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&accept-language=es&lat=${lat}&lon=${lon}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("reverse geocoding failed");
-  const a = (await res.json())?.address || {};
-  return a.city || a.town || a.village || a.municipality || a.county || "";
-}
+// "Cerca de mí" muestra planes a menos de esta distancia, del más cercano al más lejano.
+const NEAR_RADIUS_KM = 50;
 
 export default function HomePage() {
   const [search, setSearch] = useState("");
@@ -42,10 +37,17 @@ export default function HomePage() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [locating, setLocating] = useState(false);
+  const [location, setLocationState] = useState(loadSavedLocation);
+  const [followed, setFollowed] = useState(() => new Set());
   const dateInputRef = useRef(null);
 
   const { toast } = useToast();
-  const { isAuthenticated, isMerchant } = useAuth();
+  const { user, isAuthenticated, isMerchant } = useAuth();
+
+  const setLocation = (next) => {
+    setLocationState(next);
+    saveLocation(next);
+  };
 
   useDocumentTitle("Descubre planes cerca de ti");
 
@@ -76,20 +78,64 @@ export default function HomePage() {
     };
   }, [isAuthenticated, toast]);
 
-  const filtered = useMemo(() => {
-    const q = normalize(search.trim());
-    const range = dateRange(when, customDate);
-    return events.filter((e) => {
-      const day = String(e.date).slice(0, 10);
-      if (range && (day < range[0] || day > range[1])) return false;
-      if (category && e.category !== category) return false;
-      if (q) {
-        const v = e.venue;
-        if (!normalize(`${e.title} ${v?.name || ""} ${v?.address || ""}`).includes(q)) return false;
-      }
-      return true;
+  // Locales que sigue el usuario, para la sección "De tus locales".
+  useEffect(() => {
+    if (!user) {
+      setFollowed(new Set());
+      return;
+    }
+    supabase
+      .from("venue_follows")
+      .select("venue_id")
+      .then(({ data }) => setFollowed(new Set((data || []).map((f) => f.venue_id))));
+  }, [user]);
+
+  // Ciudades con planes próximos (para el selector), de más a menos planes.
+  const cities = useMemo(() => {
+    const counts = new Map();
+    events.forEach((e) => {
+      const city = e.venue?.city;
+      if (!city) return;
+      const key = normalizeText(city);
+      const prev = counts.get(key);
+      counts.set(key, { name: prev?.name || city, count: (prev?.count || 0) + 1 });
     });
-  }, [events, search, when, customDate, category]);
+    return [...counts.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "es"));
+  }, [events]);
+
+  const followedEvents = useMemo(
+    () => events.filter((e) => followed.has(e.venue_id)).slice(0, 8),
+    [events, followed]
+  );
+
+  // Lista final: [{ event, distance }] filtrada por fecha, categoría, texto y ubicación.
+  const filtered = useMemo(() => {
+    const q = normalizeText(search);
+    const range = dateRange(when, customDate);
+    // Sin sesión no hay datos del local: la ubicación solo filtra con sesión iniciada.
+    const cityKey = isAuthenticated && location.mode === "city" ? normalizeText(location.city) : null;
+    const origin = isAuthenticated && location.mode === "near" ? location : null;
+
+    const list = [];
+    for (const e of events) {
+      const day = String(e.date).slice(0, 10);
+      if (range && (day < range[0] || day > range[1])) continue;
+      if (category && e.category !== category) continue;
+      const v = e.venue;
+      if (q && !normalizeText(`${e.title} ${v?.name || ""} ${v?.address || ""} ${v?.city || ""}`).includes(q)) continue;
+      if (cityKey && normalizeText(v?.city) !== cityKey) continue;
+      let distance = null;
+      if (origin) {
+        if (v?.lat == null) continue;
+        distance = distanceKm(origin, v);
+        if (distance > NEAR_RADIUS_KM) continue;
+      }
+      list.push({ event: e, distance });
+    }
+    // Cerca de mí: del más cercano al más lejano (a igual distancia, el más próximo en fecha).
+    if (origin) list.sort((a, b) => a.distance - b.distance || String(a.event.date).localeCompare(String(b.event.date)));
+    return list;
+  }, [events, search, when, customDate, category, location, isAuthenticated]);
 
   const hasFilters = search || when !== "all" || category;
   const clearFilters = () => {
@@ -111,36 +157,28 @@ export default function HomePage() {
     else input.focus();
   };
 
-  const handleNearMe = () => {
-    if (!navigator.geolocation) {
-      toast({ title: "Tu navegador no permite la geolocalización", className: "info-toast" });
-      return;
-    }
+  const handleNearMe = async () => {
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      async ({ coords }) => {
-        try {
-          const city = await cityFromCoords(coords.latitude, coords.longitude);
-          if (!city) throw new Error("no city");
-          setSearch(city);
-          toast({ title: `Mostrando planes en ${city}`, className: "success-toast" });
-        } catch {
-          toast({ title: "No se pudo saber tu ciudad", description: "Escríbela en el buscador.", className: "info-toast" });
-        } finally {
-          setLocating(false);
-        }
-      },
-      () => {
-        setLocating(false);
-        toast({
-          title: "No se pudo acceder a tu ubicación",
-          description: "Revisa los permisos del navegador o escribe tu ciudad.",
-          className: "error-toast",
-        });
-      },
-      { timeout: 10000, maximumAge: 600000 }
-    );
+    try {
+      const pos = await getCurrentPosition();
+      setLocation({ mode: "near", ...pos, city: "" });
+      // El nombre de la ciudad es solo para la etiqueta: si falla, no pasa nada.
+      cityFromCoords(pos)
+        .then((city) => city && setLocation({ mode: "near", ...pos, city }))
+        .catch(() => {});
+    } catch {
+      toast({
+        title: "No se pudo acceder a tu ubicación",
+        description: "Revisa los permisos del navegador o elige una ciudad.",
+        className: "error-toast",
+      });
+    } finally {
+      setLocating(false);
+    }
   };
+
+  const locationTitle =
+    location.mode === "near" ? " cerca de ti" : location.mode === "city" ? ` en ${location.city}` : "";
 
   return (
     <>
@@ -172,25 +210,30 @@ export default function HomePage() {
               className="mt-8 sm:mt-10"
             >
               {isAuthenticated ? (
-                <div className="flex max-w-xl items-center gap-2 rounded-2xl bg-white p-2 text-ink shadow-lift">
-                  <MapPin className="ml-2 h-5 w-5 shrink-0 text-accent" />
-                  <input
-                    type="text"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Ciudad, local o evento"
-                    aria-label="Buscar por ciudad, local o evento"
-                    className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-muted sm:text-base"
+                <div className="grid max-w-2xl gap-1 rounded-2xl bg-white p-1.5 text-ink shadow-lift sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] sm:divide-x sm:divide-line">
+                  <LocationPicker
+                    location={location}
+                    cities={cities}
+                    onChange={setLocation}
+                    onNearMe={handleNearMe}
+                    locating={locating}
                   />
-                  {search && (
-                    <button onClick={() => setSearch("")} className="rounded-full p-1.5 text-muted hover:bg-canvas" aria-label="Borrar búsqueda">
-                      <X className="h-4 w-4" />
-                    </button>
-                  )}
-                  <button onClick={handleNearMe} disabled={locating} className="btn-dark shrink-0 !px-4" title="Usar mi ubicación">
-                    {locating ? <Loader2 className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}
-                    <span className="hidden sm:inline">Cerca de mí</span>
-                  </button>
+                  <div className="flex items-center gap-2 border-t border-line px-3 py-1 sm:border-t-0">
+                    <Search className="h-5 w-5 shrink-0 text-muted" />
+                    <input
+                      type="text"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Busca un plan o un local"
+                      aria-label="Buscar plan o local"
+                      className="min-w-0 flex-1 bg-transparent py-2.5 text-sm outline-none placeholder:text-muted sm:text-base"
+                    />
+                    {search && (
+                      <button onClick={() => setSearch("")} className="rounded-full p-1.5 text-muted hover:bg-canvas" aria-label="Borrar búsqueda">
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="flex flex-wrap gap-3">
@@ -272,13 +315,34 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ---------- DE TUS LOCALES ---------- */}
+      {followedEvents.length > 0 && (
+        <section className="page mt-10">
+          <div className="mb-4 flex items-center gap-2">
+            <Heart className="h-5 w-5 fill-accent text-accent" />
+            <h2 className="section-title !text-2xl">De tus locales</h2>
+          </div>
+          <div className="-mx-4 flex snap-x gap-5 overflow-x-auto px-4 pb-2 scrollbar-none sm:mx-0 sm:px-0">
+            {followedEvents.map((event) => (
+              <div key={event.id} className="w-64 shrink-0 snap-start sm:w-72">
+                <EventCard event={event} showCity />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* ---------- LISTADO ---------- */}
       <section className="page mt-10">
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
-            <h2 className="section-title">Próximos planes</h2>
+            <h2 className="section-title">Próximos planes{isAuthenticated ? locationTitle : ""}</h2>
             <p className="mt-1 text-sm text-muted">
-              {loading ? "Buscando planes..." : `${filtered.length} ${filtered.length === 1 ? "evento" : "eventos"}`}
+              {loading
+                ? "Buscando planes..."
+                : `${filtered.length} ${filtered.length === 1 ? "evento" : "eventos"}${
+                    location.mode === "near" && isAuthenticated ? ` a menos de ${NEAR_RADIUS_KM} km` : ""
+                  }`}
             </p>
           </div>
           {hasFilters && (
@@ -295,26 +359,54 @@ export default function HomePage() {
           </div>
         ) : filtered.length > 0 ? (
           <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((event, index) => (
+            {filtered.map(({ event, distance }, index) => (
               <motion.div
                 key={event.id}
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35, delay: Math.min(index, 6) * 0.05 }}
               >
-                <EventCard event={event} limited={!isAuthenticated} eager={index < 3} />
+                <EventCard
+                  event={event}
+                  limited={!isAuthenticated}
+                  eager={index < 3}
+                  distance={distance}
+                  showCity={location.mode !== "city"}
+                />
               </motion.div>
             ))}
           </div>
         ) : (
           <EmptyState
             icon={SearchX}
-            title={events.length === 0 ? "Aún no hay planes publicados" : "Nada por aquí"}
-            text={events.length === 0 ? "Vuelve pronto: los locales publican nuevos eventos cada semana." : "Prueba con otro día, otra categoría u otra ciudad."}
+            title={
+              events.length === 0
+                ? "Aún no hay planes publicados"
+                : location.mode === "city" && isAuthenticated
+                  ? `Aún no hay planes en ${location.city}`
+                  : location.mode === "near" && isAuthenticated
+                    ? "No hay planes cerca de ti"
+                    : "Nada por aquí"
+            }
+            text={
+              events.length === 0
+                ? "Vuelve pronto: los locales publican nuevos eventos cada semana."
+                : location.mode !== "all" && isAuthenticated
+                  ? "Prueba con otro día, otra categoría o mira en todas las ciudades."
+                  : "Prueba con otro día u otra categoría."
+            }
           >
-            {hasFilters && (
-              <button onClick={clearFilters} className="btn-outline">Limpiar filtros</button>
-            )}
+            <div className="flex flex-wrap justify-center gap-2">
+              {hasFilters && (
+                <button onClick={clearFilters} className="btn-outline">Limpiar filtros</button>
+              )}
+              {location.mode !== "all" && isAuthenticated && events.length > 0 && (
+                <button onClick={() => setLocation({ mode: "all" })} className="btn-dark">
+                  <Globe2 className="h-4 w-4" />
+                  Ver todas las ciudades
+                </button>
+              )}
+            </div>
           </EmptyState>
         )}
       </section>

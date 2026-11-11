@@ -19,4 +19,4 @@ export const COVERS_BUCKET = "event-covers";
 export const GUEST_EVENT_COLUMNS = "id, title, date, cover_path";
 
 /** Evento completo con los datos básicos de su local. */
-export const EVENT_WITH_VENUE = "*, venue:venues(id, name, address)";
+export const EVENT_WITH_VENUE = "*, venue:venues(id, name, address, city, lat, lng)";

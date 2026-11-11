@@ -1,19 +1,20 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Clock, MapPin, Lock } from "lucide-react";
+import { Clock, MapPin, Lock, Navigation } from "lucide-react";
+import { formatDistance } from "@/lib/geo";
 import { categoryIcon, coverUrl, dateParts, formatTimeRange } from "@/lib/events";
 
 /**
  * Tarjeta de evento. Con `limited` (invitado) solo enseña foto y título.
  */
-export default function EventCard({ event, limited = false, eager = false, showVenue = true }) {
+export default function EventCard({ event, limited = false, eager = false, showVenue = true, showCity = false, distance = null, className = "" }) {
   const parts = dateParts(event.date);
   const venue = event.venue;
   const time = formatTimeRange(event.start_time, event.end_time);
   const CatIcon = categoryIcon(event.category);
 
   return (
-    <Link to={`/evento/${event.id}`} className="group block focus-visible:rounded-2xl">
+    <Link to={`/evento/${event.id}`} className={`group block focus-visible:rounded-2xl ${className}`}>
       <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-line">
         <img
           src={coverUrl(event)}
@@ -51,10 +52,16 @@ export default function EventCard({ event, limited = false, eager = false, showV
           </p>
         ) : (
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
+            {distance != null && (
+              <span className="inline-flex items-center gap-1 font-semibold text-accent">
+                <Navigation className="h-3.5 w-3.5" />
+                {formatDistance(distance)}
+              </span>
+            )}
             {showVenue && venue && (
               <span className="inline-flex items-center gap-1.5 min-w-0">
                 <MapPin className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{venue.name}</span>
+                <span className="truncate">{showCity && venue.city ? `${venue.name} · ${venue.city}` : venue.name}</span>
               </span>
             )}
             {time && (

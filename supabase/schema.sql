@@ -30,9 +30,14 @@ create table public.venues (
   description text not null default '' check (char_length(description) <= 2000),
   website     text not null default '' check (website = '' or website ~* '^https?://\S+$'),
   instagram   text not null default '' check (instagram ~ '^[A-Za-z0-9._]{0,30}$'),
-  created_at  timestamptz not null default now()
+  city        text not null default '' check (char_length(city) <= 80),
+  lat         double precision check (lat between -90 and 90),
+  lng         double precision check (lng between -180 and 180),
+  created_at  timestamptz not null default now(),
+  constraint venues_coords_pair check ((lat is null) = (lng is null))
 );
 create index venues_user_id_idx on public.venues (user_id);
+create index venues_city_idx on public.venues (lower(city));
 
 create table public.events (
   id          uuid primary key default gen_random_uuid(),
@@ -160,8 +165,8 @@ grant select on public.profiles to authenticated;
 grant update (name, business_name) on public.profiles to authenticated;
 
 grant select, delete on public.venues to authenticated;
-grant insert (name, address, description, website, instagram) on public.venues to authenticated;
-grant update (name, address, description, website, instagram) on public.venues to authenticated;
+grant insert (name, address, description, website, instagram, city, lat, lng) on public.venues to authenticated;
+grant update (name, address, description, website, instagram, city, lat, lng) on public.venues to authenticated;
 
 -- Invitados: solo título, fecha y portada (el resto requiere iniciar sesión).
 grant select (id, title, date, cover_path) on public.events to anon;

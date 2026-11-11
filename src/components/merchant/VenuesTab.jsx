@@ -24,7 +24,7 @@ const VenuesTab = ({ venues, setVenues, events, setEvents, stats }) => {
     );
     // Mantiene actualizado el nombre del local en la lista de eventos.
     setEvents((prev) =>
-      prev.map((e) => (e.venue_id === saved.id ? { ...e, venue: { id: saved.id, name: saved.name, address: saved.address } } : e))
+      prev.map((e) => (e.venue_id === saved.id ? { ...e, venue: { id: saved.id, name: saved.name, address: saved.address, city: saved.city, lat: saved.lat, lng: saved.lng } } : e))
     );
     setEditing(null);
   };
@@ -91,7 +91,7 @@ const VenuesTab = ({ venues, setVenues, events, setEvents, stats }) => {
                     </Link>
                     <p className="flex items-center gap-1.5 text-sm text-muted">
                       <MapPin className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{venue.address}</span>
+                      <span className="truncate">{[venue.address, venue.city].filter(Boolean).join(", ")}</span>
                     </p>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1.5">

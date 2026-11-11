@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { User, Mail, Lock, Eye, EyeOff, Store, Compass, Sparkles, CalendarHeart, MapPinned, Loader2 } from 'lucide-react';
+import { User, Mail, Lock, Eye, EyeOff, Store, Compass, Sparkles, CalendarHeart, MapPinned, Loader2, ArrowLeft, MailCheck } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { errorMessage } from '@/lib/events';
@@ -25,10 +26,71 @@ const Field = ({ label, icon: Icon, children, hint }) => (
   </div>
 );
 
+/** Pide el email y envía el enlace para elegir una contraseña nueva (página /restablecer). */
+const ForgotPassword = ({ initialEmail, onBack }) => {
+  const [email, setEmail] = useState(initialEmail);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const { toast } = useToast();
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (sending) return;
+    setSending(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/restablecer`,
+    });
+    setSending(false);
+    // Por seguridad no se revela si el email existe: se muestra lo mismo en ambos casos.
+    if (error && /rate limit|too many/i.test(error.message)) {
+      toast({ title: 'Demasiados intentos', description: 'Espera unos minutos y vuelve a probar.', className: 'error-toast' });
+      return;
+    }
+    setSent(true);
+  };
+
+  return (
+    <>
+      <button type="button" onClick={onBack} className="btn-ghost btn-sm -ml-3 text-muted">
+        <ArrowLeft className="h-4 w-4" />
+        Volver
+      </button>
+      {sent ? (
+        <div className="mt-4">
+          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-soft">
+            <MailCheck className="h-6 w-6 text-accent" />
+          </span>
+          <h1 className="mt-4 text-3xl font-extrabold">Revisa tu email</h1>
+          <p className="mt-2 text-muted">
+            Si existe una cuenta con <strong className="text-ink">{email}</strong>, te hemos enviado un enlace para
+            elegir una contraseña nueva. Mira también en la carpeta de spam.
+          </p>
+        </div>
+      ) : (
+        <>
+          <h1 className="mt-4 text-3xl font-extrabold">¿Olvidaste tu contraseña?</h1>
+          <p className="mt-2 text-muted">Escribe tu email y te enviaremos un enlace para crear una nueva.</p>
+          <form onSubmit={submit} className="mt-6 space-y-4">
+            <Field label="Email" icon={Mail}>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} name="reset-email"
+                className="form-input pl-10" placeholder="tu@email.com" autoComplete="email" required />
+            </Field>
+            <button type="submit" disabled={sending} className="btn-primary btn-lg w-full">
+              {sending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Enviar enlace
+            </button>
+          </form>
+        </>
+      )}
+    </>
+  );
+};
+
 const AuthPage = () => {
   const location = useLocation();
   // Desde el QR de un local se abre directamente en "Crear cuenta".
   const [isLogin, setIsLogin] = useState(location.state?.mode !== 'signup');
+  const [forgot, setForgot] = useState(false);
   const [userType, setUserType] = useState('cliente');
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -123,6 +185,10 @@ const AuthPage = () => {
         {/* Formulario */}
         <div className="flex items-center px-6 py-10 sm:px-12">
           <div className="mx-auto w-full max-w-sm">
+            {forgot ? (
+              <ForgotPassword initialEmail={formData.email} onBack={() => setForgot(false)} />
+            ) : (
+            <>
             <h1 className="text-3xl font-extrabold">{isLogin ? 'Hola de nuevo' : 'Crea tu cuenta'}</h1>
             <p className="mt-2 text-muted">
               {isLogin ? 'Inicia sesión para ver todos los planes.' : 'Tardas menos de un minuto.'}
@@ -193,6 +259,13 @@ const AuthPage = () => {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </Field>
+              {isLogin && (
+                <div className="-mt-2 text-right">
+                  <button type="button" onClick={() => setForgot(true)} className="text-sm font-medium text-muted hover:text-accent">
+                    ¿Has olvidado tu contraseña?
+                  </button>
+                </div>
+              )}
 
               {!isLogin && (
                 <Field label="Repite la contraseña" icon={Lock}>
@@ -214,6 +287,8 @@ const AuthPage = () => {
                 {isLogin ? 'Crear cuenta' : 'Iniciar sesión'}
               </button>
             </p>
+            </>
+            )}
           </div>
         </div>
       </div>

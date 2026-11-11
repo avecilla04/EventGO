@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, MapPin, CalendarDays, Clock, Eye, Share2, Navigation, ChevronRight, CalendarX } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase, GUEST_EVENT_COLUMNS } from "@/lib/supabase";
+import { supabase, GUEST_EVENT_COLUMNS, EVENT_WITH_VENUE } from "@/lib/supabase";
 import { categoryIcon, coverUrl, formatDate, formatTimeRange } from "@/lib/events";
 import LoginRequired from "@/components/LoginRequired";
 import EmptyState from "@/components/EmptyState";
@@ -48,7 +48,7 @@ const EventDetailPage = () => {
     setLoading(true);
     supabase
       .from("events")
-      .select(isAuthenticated ? "*, venue:venues(id, name, address)" : GUEST_EVENT_COLUMNS)
+      .select(isAuthenticated ? EVENT_WITH_VENUE : GUEST_EVENT_COLUMNS)
       .eq("id", id)
       .maybeSingle()
       .then(({ data }) => {
@@ -100,7 +100,11 @@ const EventDetailPage = () => {
   const dateLabel = longDate && longDate.charAt(0).toUpperCase() + longDate.slice(1);
   const timeLabel = formatTimeRange(event.start_time, event.end_time);
   const CatIcon = categoryIcon(event.category);
-  const mapsUrl = venue && `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${venue.name} ${venue.address || ""}`)}`;
+  const mapsUrl =
+    venue &&
+    (venue.lat != null
+      ? `https://www.google.com/maps/search/?api=1&query=${venue.lat},${venue.lng}`
+      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${venue.name} ${venue.address || ""} ${venue.city || ""}`)}`);
 
   return (
     <div className="page pt-4 sm:pt-6">
@@ -161,7 +165,7 @@ const EventDetailPage = () => {
             {venue && (
               <InfoRow icon={MapPin} label="Dónde">
                 <span className="block">{venue.name}</span>
-                <span className="block font-normal text-muted">{venue.address}</span>
+                <span className="block font-normal text-muted">{[venue.address, venue.city].filter(Boolean).join(", ")}</span>
               </InfoRow>
             )}
             <p className="flex items-center gap-2 text-sm text-muted">

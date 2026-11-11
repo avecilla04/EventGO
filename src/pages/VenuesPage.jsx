@@ -1,17 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { MapPin, Search, Store, ArrowUpRight, X } from "lucide-react";
+import { MapPin, Search, Store, ArrowUpRight, X, Heart } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import LoginRequired from "@/components/LoginRequired";
 import EmptyState from "@/components/EmptyState";
 import useDocumentTitle from "@/lib/useDocumentTitle";
 
-const normalize = (text) =>
-  String(text || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+import { normalizeText as normalize } from "@/lib/geo";
 
 export default function VenuesPage() {
   const { isAuthenticated } = useAuth();
+  const [followed, setFollowed] = useState(() => new Set());
+  const [onlyFollowed, setOnlyFollowed] = useState(false);
   const [venues, setVenues] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -25,8 +26,13 @@ export default function VenuesPage() {
     setLoading(true);
     setError("");
     supabase
+      .from("venue_follows")
+      .select("venue_id")
+      .then(({ data }) => !cancelled && setFollowed(new Set((data || []).map((f) => f.venue_id))));
+
+    supabase
       .from("venues")
-      .select("id, name, address, description")
+      .select("id, name, address, city, description")
       .order("name")
       .then(({ data, error: err }) => {
         if (cancelled) return;
@@ -44,9 +50,11 @@ export default function VenuesPage() {
   }, [isAuthenticated]);
 
   const filtered = useMemo(() => {
-    const q = normalize(search.trim());
-    return q ? venues.filter((v) => normalize(`${v.name} ${v.address}`).includes(q)) : venues;
-  }, [venues, search]);
+    const q = normalize(search);
+    return venues.filter(
+      (v) => (!onlyFollowed || followed.has(v.id)) && (!q || normalize(`${v.name} ${v.address} ${v.city}`).includes(q))
+    );
+  }, [venues, search, onlyFollowed, followed]);
 
   if (!isAuthenticated) {
     return (
@@ -70,7 +78,7 @@ export default function VenuesPage() {
           <Search className="h-4 w-4 shrink-0 text-muted" />
           <input
             type="text"
-            placeholder="Nombre o ciudad"
+            placeholder="Nombre, calle o ciudad"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted"
@@ -84,7 +92,17 @@ export default function VenuesPage() {
         </div>
       </div>
 
-      <div className="mt-8">
+      <div className="mt-6 flex gap-2">
+        <button type="button" onClick={() => setOnlyFollowed(false)} className={`chip ${!onlyFollowed ? "chip-active" : ""}`} aria-pressed={!onlyFollowed}>
+          Todos
+        </button>
+        <button type="button" onClick={() => setOnlyFollowed(true)} className={`chip ${onlyFollowed ? "chip-active" : ""}`} aria-pressed={onlyFollowed}>
+          <Heart className={`h-4 w-4 ${onlyFollowed ? "fill-white" : "text-accent"}`} />
+          Siguiendo{followed.size > 0 ? ` (${followed.size})` : ""}
+        </button>
+      </div>
+
+      <div className="mt-6">
         {loading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[0, 1, 2].map((i) => <div key={i} className="h-28 animate-pulse rounded-2xl bg-line" />)}
@@ -103,10 +121,13 @@ export default function VenuesPage() {
                   {venue.name.charAt(0).toUpperCase()}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <h2 className="truncate font-display text-lg font-semibold">{venue.name}</h2>
+                  <h2 className="flex items-center gap-1.5 font-display text-lg font-semibold">
+                    <span className="truncate">{venue.name}</span>
+                    {followed.has(venue.id) && <Heart className="h-4 w-4 shrink-0 fill-accent text-accent" aria-label="Lo sigues" />}
+                  </h2>
                   <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted">
                     <MapPin className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{venue.address || "Sin dirección"}</span>
+                    <span className="truncate">{[venue.address, venue.city].filter(Boolean).join(", ") || "Sin dirección"}</span>
                   </p>
                   {venue.description && <p className="mt-2 line-clamp-2 text-sm text-ink/70">{venue.description}</p>}
                 </div>
@@ -117,8 +138,20 @@ export default function VenuesPage() {
         ) : (
           <EmptyState
             icon={Store}
-            title={venues.length === 0 ? "Todavía no hay locales" : "No hay locales con ese nombre"}
-            text={venues.length === 0 ? "Pronto los bares de tu zona empezarán a publicar." : "Prueba con otro nombre o ciudad."}
+            title={
+              venues.length === 0
+                ? "Todavía no hay locales"
+                : onlyFollowed && followed.size === 0
+                  ? "Aún no sigues ningún local"
+                  : "No hay locales con ese nombre"
+            }
+            text={
+              venues.length === 0
+                ? "Pronto los bares de tu zona empezarán a publicar."
+                : onlyFollowed && followed.size === 0
+                  ? "Entra en un local y pulsa «Seguir», o escanea su QR, para ver aquí sus planes."
+                  : "Prueba con otro nombre o ciudad."
+            }
           />
         )}
       </div>
